@@ -1,6 +1,7 @@
 package com.mymeditation.player;
 
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,6 +17,7 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
     private List<FileItem> fileList;
     private OnFileClickListener listener;
     private int selectedPosition = -1;
+    private ThemeManager.ThemeColors themeColors;
 
     public interface OnFileClickListener {
         void onFileClick(FileItem file, int position);
@@ -24,6 +26,11 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
     public FileAdapter(List<FileItem> fileList, OnFileClickListener listener) {
         this.fileList = fileList;
         this.listener = listener;
+    }
+
+    public void setThemeColors(ThemeManager.ThemeColors colors) {
+        this.themeColors = colors;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -39,15 +46,22 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         FileItem item = fileList.get(position);
         holder.textViewFileName.setText(item.getName());
         holder.textViewFileSize.setText(item.getFormattedSize());
-        
+
         // 高亮选中的文件
         if (position == selectedPosition) {
-            holder.itemView.setBackgroundColor(ContextCompat.getColor(
-                    holder.itemView.getContext(), android.R.color.holo_blue_light));
+            int highlightColor = (themeColors != null) ? themeColors.accent : ContextCompat.getColor(
+                    holder.itemView.getContext(), android.R.color.holo_blue_light);
+            holder.itemView.setBackgroundColor(highlightColor);
         } else {
             holder.itemView.setBackgroundColor(Color.TRANSPARENT);
         }
-        
+
+        // T15: 应用主题颜色到文字
+        if (themeColors != null) {
+            holder.textViewFileName.setTextColor(themeColors.primaryDark);
+            holder.textViewFileSize.setTextColor(themeColors.primary);
+        }
+
         holder.itemView.setOnClickListener(v -> {
             int previousSelected = selectedPosition;
             selectedPosition = position;
@@ -64,19 +78,12 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         return fileList != null ? fileList.size() : 0;
     }
 
-    public void setSelectedPosition(int position) {
+    public void resetSelection() {
         int previousSelected = selectedPosition;
-        selectedPosition = position;
+        selectedPosition = -1;
         if (previousSelected != -1) {
             notifyItemChanged(previousSelected);
         }
-        if (selectedPosition != -1) {
-            notifyItemChanged(selectedPosition);
-        }
-    }
-
-    public int getSelectedPosition() {
-        return selectedPosition;
     }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
@@ -90,4 +97,3 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         }
     }
 }
-
