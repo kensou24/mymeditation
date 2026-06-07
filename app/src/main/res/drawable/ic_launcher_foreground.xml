@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 冥想主题图标：简洁的圆形设计，使用应用主题颜色 -->
+    <!-- 外圈 - 使用 accent 颜色（浅绿色） -->
+    <path
+        android:fillColor="@color/accent"
+        android:pathData="M54,18c19.9,0 36,16.1 36,36s-16.1,36 -36,36 -36,-16.1 -36,-36 16.1,-36 36,-36z"/>
+    <!-- 中圈 - 使用 primary_light 颜色（浅蓝色） -->
+    <path
+        android:fillColor="@color/primary_light"
+        android:pathData="M54,28c14.9,0 27,12.1 27,27s-12.1,27 -27,27 -27,-12.1 -27,-27 12.1,-27 27,-27z"/>
+    <!-- 内圈 - 使用白色，代表纯净和宁静 -->
+    <path
+        android:fillColor="@color/text_white"
+        android:pathData="M54,40c9.9,0 18,8.1 18,18s-8.1,18 -18,18 -18,-8.1 -18,-18 8.1,-18 18,-18z"/>
+    <!-- 中心点 - 使用 accent 颜色，代表内心的平静 -->
+    <path
+        android:fillColor="@color/accent"
+        android:pathData="M54,52c3.3,0 6,2.7 6,6s-2.7,6 -6,6 -6,-2.7 -6,-6 2.7,-6 6,-6z"/>
+</vector>

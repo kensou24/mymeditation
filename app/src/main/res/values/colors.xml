@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 冥想主题色彩 -->
+    <color name="primary">#6B8E9F</color>
+    <color name="primary_dark">#4A6B7A</color>
+    <color name="primary_light">#9BB5C4</color>
+    <color name="accent">#A8D5BA</color>
+    <color name="accent_dark">#7FB896</color>
+    
+    <!-- 背景色 -->
+    <color name="background">#F5F7FA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_dark">#E8EBED</color>
+    
+    <!-- 文字颜色 -->
+    <color name="text_primary">#2C3E50</color>
+    <color name="text_secondary">#7F8C8D</color>
+    <color name="text_white">#FFFFFF</color>
+    
+    <!-- 播放器背景 -->
+    <color name="player_background">#2C3E50</color>
+    <color name="player_background_light">#34495E</color>
+    
+    <!-- 按钮颜色 -->
+    <color name="button_primary">#6B8E9F</color>
+    <color name="button_primary_pressed">#4A6B7A</color>
+    <color name="button_accent">#A8D5BA</color>
+    
+    <!-- 兼容旧颜色 -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#6B8E9F</color>
+    <color name="purple_700">#4A6B7A</color>
+    <color name="teal_200">#A8D5BA</color>
+    <color name="teal_700">#7FB896</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
+
