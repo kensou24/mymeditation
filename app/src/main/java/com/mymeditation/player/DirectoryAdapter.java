@@ -1,5 +1,6 @@
 package com.mymeditation.player;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +14,7 @@ import java.util.List;
 public class DirectoryAdapter extends RecyclerView.Adapter<DirectoryAdapter.ViewHolder> {
     private List<DirectoryItem> directoryList;
     private OnDirectoryClickListener listener;
+    private ThemeManager.ThemeColors themeColors;
 
     public interface OnDirectoryClickListener {
         void onDirectoryClick(DirectoryItem directory);
@@ -21,6 +23,11 @@ public class DirectoryAdapter extends RecyclerView.Adapter<DirectoryAdapter.View
     public DirectoryAdapter(List<DirectoryItem> directoryList, OnDirectoryClickListener listener) {
         this.directoryList = directoryList;
         this.listener = listener;
+    }
+
+    public void setThemeColors(ThemeManager.ThemeColors colors) {
+        this.themeColors = colors;
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -36,7 +43,13 @@ public class DirectoryAdapter extends RecyclerView.Adapter<DirectoryAdapter.View
         DirectoryItem item = directoryList.get(position);
         holder.textViewDirectoryName.setText(item.getName());
         holder.textViewFileCount.setText(item.getFileCount() + " 个MP3文件");
-        
+
+        // T15: 应用主题颜色
+        if (themeColors != null) {
+            holder.textViewDirectoryName.setTextColor(themeColors.primaryDark);
+            holder.textViewFileCount.setTextColor(themeColors.primary);
+        }
+
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onDirectoryClick(item);
@@ -60,5 +73,3 @@ public class DirectoryAdapter extends RecyclerView.Adapter<DirectoryAdapter.View
         }
     }
 }
-
-

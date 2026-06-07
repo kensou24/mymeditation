@@ -1,17 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">冥想播放器</string>
-    <string name="select_directory">选择目录</string>
+    <string name="app_title">🧘 冥想播放器</string>
+    <string name="select_directory">📂 选择目录</string>
+    <string name="select_file">🎵 选择文件</string>
     <string name="play">播放</string>
     <string name="pause">暂停</string>
     <string name="stop">停止</string>
+    <string name="previous">上一首</string>
+    <string name="next">下一首</string>
     <string name="set_timer">设置</string>
-    <string name="timer_minutes">分钟</string>
+    <string name="timer_hint">定时（分）</string>
     <string name="cancel_timer">取消</string>
     <string name="no_files">该目录下没有MP3文件</string>
     <string name="playing">正在播放</string>
     <string name="paused">已暂停</string>
     <string name="stopped">已停止</string>
+
+    <!-- 播放模式 -->
+    <string name="mode_sequence">顺序循环</string>
+    <string name="mode_repeat_one">单曲循环</string>
+    <string name="mode_shuffle">随机播放</string>
+
+    <!-- 排序 -->
+    <string name="sort_by_name">按名称</string>
+    <string name="sort_by_size">按大小</string>
+    <string name="sort_by_date">按时间</string>
+
+    <!-- 主题 -->
+    <string name="theme_dialog_title">选择皮肤主题</string>
+    <string name="theme_ocean_blue">海洋蓝</string>
+    <string name="theme_forest_green">森林绿</string>
+    <string name="theme_sunset_orange">日落橙</string>
+    <string name="theme_lavender_purple">薰衣草紫</string>
+    <string name="theme_deep_blue">深蓝</string>
+    <string name="theme_changed">已切换到：%s</string>
+
+    <!-- 对话框 -->
+    <string name="dialog_confirm">确定</string>
+    <string name="dialog_cancel">取消</string>
+
+    <!-- 权限 -->
+    <string name="permission_title">需要存储权限</string>
+    <string name="permission_manage_storage_message">冥想播放器需要\"所有文件访问\"权限来读取MP3文件。请点击确定并在设置中开启权限。</string>
+    <string name="permission_denied_storage">需要存储权限才能访问MP3文件</string>
+    <string name="permission_denied_audio">需要音频权限才能访问MP3文件</string>
+
+    <!-- 提示消息 -->
+    <string name="app_launch_error">应用启动失败: %s</string>
+    <string name="directory_not_found">未找到\"播放文件\"目录，请确保目录存在并包含MP3文件</string>
+    <string name="directory_access_error">无法访问目录: %s</string>
+    <string name="directory_load_error">加载目录时出错: %s</string>
+    <string name="directory_selected">已选择目录: %s</string>
+    <string name="file_access_error">无法访问文件: %s</string>
+    <string name="file_load_error">加载文件时出错: %s</string>
+    <string name="file_selected">已选择文件: %s</string>
+    <string name="file_count_label">选择文件 (%d 个文件)</string>
+    <string name="select_directory_or_file">请先选择目录或文件</string>
+
+    <!-- 定时器 -->
+    <string name="timer_input_hint">请输入分钟数</string>
+    <string name="timer_invalid">请输入大于0的分钟数</string>
+    <string name="timer_invalid_number">请输入有效的数字</string>
+    <string name="timer_max_exceeded">最大定时时长为 %d 分钟</string>
+    <string name="timer_set">定时已设置：%d 分钟</string>
+    <string name="timer_cancelled">定时已取消</string>
+    <string name="timer_remaining_hms">定时剩余: %02d:%02d:%02d</string>
+    <string name="timer_remaining_ms">定时剩余: %02d:%02d</string>
+
+    <!-- 播放状态 -->
+    <string name="status_playing">正在播放</string>
+    <string name="status_paused">已暂停</string>
+    <string name="status_stopped">已停止</string>
 </resources>
-
-

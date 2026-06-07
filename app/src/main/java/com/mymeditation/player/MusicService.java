@@ -5,16 +5,26 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
+import android.view.KeyEvent;
 
 import androidx.core.app.NotificationCompat;
 import androidx.media.app.NotificationCompat.MediaStyle;
+import androidx.media.session.MediaButtonReceiver;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,24 +39,35 @@ public class MusicService extends Service {
     private static final String CHANNEL_ID = "music_channel";
     private static final int NOTIFICATION_ID = 1;
 
+    // 播放模式
+    public static final int MODE_SEQUENCE = 0;      // 顺序循环
+    public static final int MODE_REPEAT_ONE = 1;    // 单曲循环
+    public static final int MODE_SHUFFLE = 2;       // 随机播放
+
     private MediaPlayer mediaPlayer;
     private List<String> playlist;
     private int currentIndex = 0;
     private int playbackState = STATE_STOPPED;
+    private int playMode = MODE_SEQUENCE;
     private String currentDirectoryPath;
     private Handler timerHandler;
     private Handler progressHandler;
     private Runnable timerRunnable;
     private Runnable progressRunnable;
     private long timerEndTime = 0;
-    private Object mediaSession; // MediaSessionCompat placeholder
+    private MediaSessionCompat mediaSession;
     private ProgressCallback progressCallback;
     private TimerCallback timerCallback;
+
+    // 音频焦点
+    private AudioManager audioManager;
+    private AudioFocusRequest audioFocusRequest;
+    private boolean hasAudioFocus = false;
 
     public interface ProgressCallback {
         void onProgressUpdate(int currentPosition, int duration, String currentFileName);
     }
-    
+
     public interface TimerCallback {
         void onTimerUpdate(long remainingSeconds);
         void onTimerFinished();
@@ -65,6 +86,7 @@ public class MusicService extends Service {
         super.onCreate();
         timerHandler = new Handler(Looper.getMainLooper());
         progressHandler = new Handler(Looper.getMainLooper());
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         createNotificationChannel();
         initializeMediaSession();
     }
@@ -85,14 +107,140 @@ public class MusicService extends Service {
     }
 
     private void initializeMediaSession() {
-        // MediaSession initialization removed - using basic notification instead
-        mediaSession = null;
+        ComponentName mediaButtonReceiver = new ComponentName(this, MediaButtonReceiver.class.getName());
+        mediaSession = new MediaSessionCompat(this, "MyMeditationPlayer", mediaButtonReceiver, null);
+        mediaSession.setFlags(
+                MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
+                MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+        );
+        mediaSession.setCallback(new MediaSessionCompat.Callback() {
+            @Override
+            public void onPlay() {
+                play();
+            }
+
+            @Override
+            public void onPause() {
+                pause();
+            }
+
+            @Override
+            public void onStop() {
+                stop();
+            }
+
+            @Override
+            public void onSkipToNext() {
+                playNext();
+            }
+
+            @Override
+            public void onSkipToPrevious() {
+                playPrevious();
+            }
+
+            @Override
+            public void onSeekTo(long pos) {
+                seekTo((int) pos);
+            }
+
+            @Override
+            public boolean onMediaButtonEvent(Intent mediaButtonEvent) {
+                if (Intent.ACTION_MEDIA_BUTTON.equals(mediaButtonEvent.getAction())) {
+                    KeyEvent keyEvent = mediaButtonEvent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+                    if (keyEvent != null && keyEvent.getAction() == KeyEvent.ACTION_DOWN) {
+                        switch (keyEvent.getKeyCode()) {
+                            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+                                if (playbackState == STATE_PLAYING) {
+                                    pause();
+                                } else {
+                                    play();
+                                }
+                                return true;
+                            case KeyEvent.KEYCODE_MEDIA_NEXT:
+                                playNext();
+                                return true;
+                            case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                                playPrevious();
+                                return true;
+                        }
+                    }
+                }
+                return super.onMediaButtonEvent(mediaButtonEvent);
+            }
+        });
+        mediaSession.setActive(true);
+    }
+
+    private void updateMediaSessionState() {
+        if (mediaSession == null) return;
+
+        long actions = PlaybackStateCompat.ACTION_PLAY_PAUSE
+                | PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+                | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                | PlaybackStateCompat.ACTION_SEEK_TO;
+
+        int state;
+        switch (playbackState) {
+            case STATE_PLAYING:
+                state = PlaybackStateCompat.STATE_PLAYING;
+                actions |= PlaybackStateCompat.ACTION_PAUSE;
+                break;
+            case STATE_PAUSED:
+                state = PlaybackStateCompat.STATE_PAUSED;
+                actions |= PlaybackStateCompat.ACTION_PLAY;
+                break;
+            default:
+                state = PlaybackStateCompat.STATE_STOPPED;
+                actions |= PlaybackStateCompat.ACTION_PLAY;
+                break;
+        }
+
+        long position = 0;
+        if (mediaPlayer != null && (playbackState == STATE_PLAYING || playbackState == STATE_PAUSED)) {
+            try {
+                position = mediaPlayer.getCurrentPosition();
+            } catch (IllegalStateException ignored) {
+            }
+        }
+
+        PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder();
+        stateBuilder.setActions(actions);
+        stateBuilder.setState(state, position, 1.0f);
+        mediaSession.setPlaybackState(stateBuilder.build());
+    }
+
+    private void updateMediaSessionMetadata() {
+        if (mediaSession == null) return;
+
+        String fileName = getCurrentFileName();
+        if (fileName.isEmpty()) {
+            fileName = "冥想音乐";
+        }
+        // 去掉 .mp3 后缀显示
+        if (fileName.toLowerCase().endsWith(".mp3")) {
+            fileName = fileName.substring(0, fileName.length() - 4);
+        }
+
+        long duration = 0;
+        if (mediaPlayer != null) {
+            try {
+                duration = mediaPlayer.getDuration();
+            } catch (IllegalStateException ignored) {
+            }
+        }
+
+        MediaMetadataCompat.Builder metadataBuilder = new MediaMetadataCompat.Builder();
+        metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_TITLE, fileName);
+        metadataBuilder.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "冥想播放器");
+        metadataBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, duration);
+        mediaSession.setMetadata(metadataBuilder.build());
     }
 
     public void setProgressCallback(ProgressCallback callback) {
         this.progressCallback = callback;
     }
-    
+
     public void setTimerCallback(TimerCallback callback) {
         this.timerCallback = callback;
     }
@@ -106,7 +254,7 @@ public class MusicService extends Service {
         currentDirectoryPath = directoryPath;
         playlist = new ArrayList<>();
         File directory = new File(directoryPath);
-        
+
         if (directory.exists() && directory.isDirectory()) {
             File[] files = directory.listFiles();
             if (files != null) {
@@ -115,23 +263,21 @@ public class MusicService extends Service {
                         playlist.add(file.getAbsolutePath());
                     }
                 }
-                // 按文件名排序
                 playlist.sort(String::compareTo);
             }
         }
-        
+
         stop();
         currentIndex = 0;
     }
-    
+
     public void setPlaylistFromFile(String filePath) {
         playlist = new ArrayList<>();
         File file = new File(filePath);
-        
+
         if (file.exists() && file.isFile() && file.getName().toLowerCase().endsWith(".mp3")) {
             currentDirectoryPath = file.getParent();
-            
-            // 加载同目录下的所有MP3文件
+
             File directory = new File(currentDirectoryPath);
             if (directory.exists() && directory.isDirectory()) {
                 File[] files = directory.listFiles();
@@ -142,10 +288,8 @@ public class MusicService extends Service {
                             allFiles.add(f.getAbsolutePath());
                         }
                     }
-                    // 按文件名排序
                     allFiles.sort(String::compareTo);
-                    
-                    // 找到选中文件在列表中的位置
+
                     String selectedFilePath = file.getAbsolutePath();
                     int selectedIndex = 0;
                     for (int i = 0; i < allFiles.size(); i++) {
@@ -154,21 +298,171 @@ public class MusicService extends Service {
                             break;
                         }
                     }
-                    
-                    // 只将选中文件及其后面的文件加入播放列表
+
+                    // T10: 从选中文件开始，到末尾后再从目录开头循环
                     for (int i = selectedIndex; i < allFiles.size(); i++) {
                         playlist.add(allFiles.get(i));
                     }
-                    currentIndex = 0; // 从列表的第一个（即选中的文件）开始播放
+                    for (int i = 0; i < selectedIndex; i++) {
+                        playlist.add(allFiles.get(i));
+                    }
+                    currentIndex = 0;
                 }
             }
         }
-        
+
         stop();
     }
-    
+
     public List<String> getPlaylist() {
         return playlist;
+    }
+
+    public int getPlaylistSize() {
+        return playlist != null ? playlist.size() : 0;
+    }
+
+    public int getCurrentIndex() {
+        return currentIndex;
+    }
+
+    private void releasePlayer() {
+        if (mediaPlayer != null) {
+            try {
+                if (mediaPlayer.isPlaying()) {
+                    mediaPlayer.stop();
+                }
+            } catch (IllegalStateException ignored) {
+            }
+            try {
+                mediaPlayer.release();
+            } catch (IllegalStateException ignored) {
+            }
+            mediaPlayer = null;
+        }
+    }
+
+    private void setupMediaPlayer(String filePath) {
+        setupMediaPlayer(filePath, 0);
+    }
+
+    private void setupMediaPlayer(String filePath, int retryCount) {
+        releasePlayer();
+        mediaPlayer = new MediaPlayer();
+        mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+            if (progressCallback != null) {
+                progressCallback.onProgressUpdate(0, 0, getCurrentFileName() + " (播放失败)");
+            }
+            if (playlist != null && playlist.size() > 1 && retryCount + 1 < playlist.size()) {
+                currentIndex++;
+                if (currentIndex >= playlist.size()) {
+                    currentIndex = 0;
+                }
+                setupMediaPlayer(playlist.get(currentIndex), retryCount + 1);
+            } else {
+                stop();
+            }
+            return true;
+        });
+        mediaPlayer.setOnCompletionListener(mp -> playNext());
+        try {
+            mediaPlayer.setDataSource(filePath);
+            mediaPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                playbackState = STATE_PLAYING;
+                startProgressUpdates();
+                updateNotification();
+                updateMediaSessionState();
+                updateMediaSessionMetadata();
+                if (progressCallback != null) {
+                    progressCallback.onProgressUpdate(0, mp.getDuration(), getCurrentFileName());
+                }
+            });
+            mediaPlayer.prepareAsync();
+        } catch (IOException e) {
+            e.printStackTrace();
+            if (playlist != null && playlist.size() > 1 && retryCount + 1 < playlist.size()) {
+                currentIndex++;
+                if (currentIndex >= playlist.size()) {
+                    currentIndex = 0;
+                }
+                setupMediaPlayer(playlist.get(currentIndex), retryCount + 1);
+            } else {
+                playbackState = STATE_STOPPED;
+            }
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private boolean requestAudioFocus() {
+        if (audioManager == null) return true;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (audioFocusRequest == null) {
+                AudioAttributes attrs = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build();
+                audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(attrs)
+                        .setOnAudioFocusChangeListener(this::onAudioFocusChange)
+                        .build();
+            }
+            int result = audioManager.requestAudioFocus(audioFocusRequest);
+            hasAudioFocus = (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+        } else {
+            int result = audioManager.requestAudioFocus(
+                    this::onAudioFocusChange,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN
+            );
+            hasAudioFocus = (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+        }
+        return hasAudioFocus;
+    }
+
+    @SuppressWarnings("deprecation")
+    private void abandonAudioFocus() {
+        if (audioManager == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && audioFocusRequest != null) {
+            audioManager.abandonAudioFocusRequest(audioFocusRequest);
+        } else {
+            audioManager.abandonAudioFocus(this::onAudioFocusChange);
+        }
+        hasAudioFocus = false;
+    }
+
+    private void onAudioFocusChange(int focusChange) {
+        switch (focusChange) {
+            case AudioManager.AUDIOFOCUS_LOSS:
+                // 永久失去焦点 — 停止播放
+                stop();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                // 短暂失去焦点（来电等） — 暂停
+                if (playbackState == STATE_PLAYING) {
+                    pause();
+                }
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                // 可以降低音量播放（如通知提示音）
+                if (mediaPlayer != null) {
+                    try {
+                        mediaPlayer.setVolume(0.3f, 0.3f);
+                    } catch (IllegalStateException ignored) {
+                    }
+                }
+                break;
+            case AudioManager.AUDIOFOCUS_GAIN:
+                // 恢复焦点 — 恢复播放
+                if (mediaPlayer != null) {
+                    try {
+                        mediaPlayer.setVolume(1.0f, 1.0f);
+                    } catch (IllegalStateException ignored) {
+                    }
+                }
+                break;
+        }
     }
 
     public void play() {
@@ -177,35 +471,26 @@ public class MusicService extends Service {
         }
 
         if (playbackState == STATE_PAUSED && mediaPlayer != null) {
-            mediaPlayer.start();
-            playbackState = STATE_PLAYING;
-            startProgressUpdates();
-            updateNotification();
+            if (requestAudioFocus()) {
+                mediaPlayer.start();
+                playbackState = STATE_PLAYING;
+                startProgressUpdates();
+                updateNotification();
+                updateMediaSessionState();
+            }
             return;
         }
 
-        stop();
-        
+        releasePlayer();
+
         if (currentIndex >= playlist.size()) {
             currentIndex = 0;
         }
 
-        try {
-            mediaPlayer = new MediaPlayer();
-            mediaPlayer.setDataSource(playlist.get(currentIndex));
-            mediaPlayer.prepare();
-            mediaPlayer.setOnCompletionListener(mp -> {
-                playNext();
-            });
-            mediaPlayer.start();
-            playbackState = STATE_PLAYING;
-            startProgressUpdates();
-            updateNotification();
-            startForeground(NOTIFICATION_ID, createNotification());
-        } catch (IOException e) {
-            e.printStackTrace();
-            playbackState = STATE_STOPPED;
-        }
+        if (!requestAudioFocus()) return;
+
+        startForeground(NOTIFICATION_ID, createNotification());
+        setupMediaPlayer(playlist.get(currentIndex));
     }
 
     public void pause() {
@@ -214,53 +499,94 @@ public class MusicService extends Service {
             playbackState = STATE_PAUSED;
             stopProgressUpdates();
             updateNotification();
+            updateMediaSessionState();
         }
     }
 
     public void stop() {
-        if (mediaPlayer != null) {
-            if (mediaPlayer.isPlaying()) {
-                mediaPlayer.stop();
-            }
-            mediaPlayer.release();
-            mediaPlayer = null;
-        }
+        releasePlayer();
         playbackState = STATE_STOPPED;
         cancelTimer();
         stopProgressUpdates();
+        abandonAudioFocus();
         updateNotification();
+        updateMediaSessionState();
         stopForeground(true);
     }
 
-    private void playNext() {
+    public void playNext() {
         if (playlist == null || playlist.isEmpty()) {
             stop();
             return;
         }
 
-        currentIndex++;
-        if (currentIndex >= playlist.size()) {
-            currentIndex = 0; // 循环播放
+        if (playMode == MODE_REPEAT_ONE) {
+            // 单曲循环：重播当前曲目
+            currentIndex = currentIndex; // 不变
+        } else if (playMode == MODE_SHUFFLE) {
+            // 随机播放
+            int newIndex;
+            if (playlist.size() <= 1) {
+                newIndex = 0;
+            } else {
+                do {
+                    newIndex = (int) (Math.random() * playlist.size());
+                } while (newIndex == currentIndex);
+            }
+            currentIndex = newIndex;
+        } else {
+            // 顺序循环
+            currentIndex++;
+            if (currentIndex >= playlist.size()) {
+                currentIndex = 0;
+            }
         }
 
-        try {
-            if (mediaPlayer != null) {
-                mediaPlayer.release();
-            }
-            mediaPlayer = new MediaPlayer();
-            mediaPlayer.setDataSource(playlist.get(currentIndex));
-            mediaPlayer.prepare();
-            mediaPlayer.setOnCompletionListener(mp -> {
-                playNext();
-            });
-            mediaPlayer.start();
-            playbackState = STATE_PLAYING;
-            startProgressUpdates();
-            updateNotification();
-        } catch (IOException e) {
-            e.printStackTrace();
-            stop();
+        setupMediaPlayer(playlist.get(currentIndex));
+    }
+
+    public void playPrevious() {
+        if (playlist == null || playlist.isEmpty()) {
+            return;
         }
+
+        // 如果当前播放超过 3 秒，则重播当前曲目
+        if (mediaPlayer != null) {
+            try {
+                if (mediaPlayer.getCurrentPosition() > 3000) {
+                    seekTo(0);
+                    return;
+                }
+            } catch (IllegalStateException ignored) {
+            }
+        }
+
+        if (playMode == MODE_SHUFFLE) {
+            int newIndex;
+            if (playlist.size() <= 1) {
+                newIndex = 0;
+            } else {
+                do {
+                    newIndex = (int) (Math.random() * playlist.size());
+                } while (newIndex == currentIndex);
+            }
+            currentIndex = newIndex;
+        } else {
+            currentIndex--;
+            if (currentIndex < 0) {
+                currentIndex = playlist.size() - 1;
+            }
+        }
+
+        setupMediaPlayer(playlist.get(currentIndex));
+    }
+
+    public void setPlayMode(int mode) {
+        this.playMode = mode;
+    }
+
+    public int getPlayMode() {
+        return playMode;
     }
 
     private void startProgressUpdates() {
@@ -300,14 +626,22 @@ public class MusicService extends Service {
 
     public int getCurrentPosition() {
         if (mediaPlayer != null) {
-            return mediaPlayer.getCurrentPosition();
+            try {
+                return mediaPlayer.getCurrentPosition();
+            } catch (IllegalStateException e) {
+                return 0;
+            }
         }
         return 0;
     }
 
     public int getDuration() {
         if (mediaPlayer != null) {
-            return mediaPlayer.getDuration();
+            try {
+                return mediaPlayer.getDuration();
+            } catch (IllegalStateException e) {
+                return 0;
+            }
         }
         return 0;
     }
@@ -315,15 +649,14 @@ public class MusicService extends Service {
     public void seekTo(int position) {
         if (mediaPlayer != null) {
             try {
-                // 确保MediaPlayer已准备好
                 if (mediaPlayer.isPlaying() || playbackState == STATE_PAUSED) {
                     mediaPlayer.seekTo(position);
-                    // 立即更新进度回调，确保UI同步
                     if (progressCallback != null) {
                         int duration = mediaPlayer.getDuration();
                         String fileName = getCurrentFileName();
                         progressCallback.onProgressUpdate(position, duration, fileName);
                     }
+                    updateMediaSessionState();
                 }
             } catch (IllegalStateException e) {
                 e.printStackTrace();
@@ -334,20 +667,17 @@ public class MusicService extends Service {
     public void setTimer(int minutes) {
         cancelTimer();
         timerEndTime = System.currentTimeMillis() + (minutes * 60 * 1000L);
-        
+
         timerRunnable = new Runnable() {
             @Override
             public void run() {
                 long currentTime = System.currentTimeMillis();
                 if (currentTime >= timerEndTime) {
-                    // 定时结束，停止播放并取消定时
                     stop();
-                    cancelTimer();
                     if (timerCallback != null) {
                         timerCallback.onTimerFinished();
                     }
                 } else {
-                    // 计算剩余秒数并更新回调
                     long remainingMillis = timerEndTime - currentTime;
                     long remainingSeconds = remainingMillis / 1000;
                     if (timerCallback != null) {
@@ -359,22 +689,23 @@ public class MusicService extends Service {
         };
         timerHandler.post(timerRunnable);
     }
-    
+
     public void cancelTimer() {
+        boolean wasActive = isTimerActive();
         if (timerRunnable != null) {
             timerHandler.removeCallbacks(timerRunnable);
             timerRunnable = null;
         }
         timerEndTime = 0;
-        if (timerCallback != null) {
-            timerCallback.onTimerFinished(); // 通知UI隐藏倒计时
+        if (wasActive && timerCallback != null) {
+            timerCallback.onTimerFinished();
         }
     }
-    
+
     public boolean isTimerActive() {
         return timerEndTime > 0 && System.currentTimeMillis() < timerEndTime;
     }
-    
+
     public long getRemainingSeconds() {
         if (timerEndTime > 0) {
             long remaining = (timerEndTime - System.currentTimeMillis()) / 1000;
@@ -406,21 +737,34 @@ public class MusicService extends Service {
         if (fileName.isEmpty()) {
             fileName = "冥想音乐";
         }
+        // 去掉 .mp3 后缀显示
+        String displayTitle = fileName;
+        if (displayTitle.toLowerCase().endsWith(".mp3")) {
+            displayTitle = displayTitle.substring(0, displayTitle.length() - 4);
+        }
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentTitle("冥想播放器")
-                .setContentText(fileName)
+                .setContentText(displayTitle)
                 .setContentIntent(pendingIntent)
                 .setStyle(new MediaStyle()
-                        .setShowActionsInCompactView(0, 1))
+                        .setMediaSession(mediaSession.getSessionToken())
+                        .setShowActionsInCompactView(0, 1, 2))
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOngoing(playbackState == STATE_PLAYING);
 
-        // 添加播放/暂停按钮
+        // 上一首按钮
+        Intent prevIntent = new Intent(this, MusicService.class);
+        prevIntent.setAction("PREVIOUS");
+        PendingIntent prevPendingIntent = PendingIntent.getService(this, 3, prevIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        builder.addAction(android.R.drawable.ic_media_previous, "上一首", prevPendingIntent);
+
+        // 播放/暂停按钮
         Intent playPauseIntent = new Intent(this, MusicService.class);
         playPauseIntent.setAction(playbackState == STATE_PLAYING ? "PAUSE" : "PLAY");
-        PendingIntent playPausePendingIntent = PendingIntent.getService(this, 0, playPauseIntent,
+        PendingIntent playPausePendingIntent = PendingIntent.getService(this, 1, playPauseIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         if (playbackState == STATE_PLAYING) {
@@ -429,14 +773,12 @@ public class MusicService extends Service {
             builder.addAction(android.R.drawable.ic_media_play, "播放", playPausePendingIntent);
         }
 
-        // 添加停止按钮
+        // 停止按钮
         Intent stopIntent = new Intent(this, MusicService.class);
         stopIntent.setAction("STOP");
-        PendingIntent stopPendingIntent = PendingIntent.getService(this, 0, stopIntent,
+        PendingIntent stopPendingIntent = PendingIntent.getService(this, 2, stopIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         builder.addAction(android.R.drawable.ic_media_ff, "停止", stopPendingIntent);
-
-        // MediaSession metadata and state updates removed - using basic notification
 
         return builder.build();
     }
@@ -451,6 +793,10 @@ public class MusicService extends Service {
                 pause();
             } else if ("STOP".equals(action)) {
                 stop();
+            } else if ("PREVIOUS".equals(action)) {
+                playPrevious();
+            } else if ("NEXT".equals(action)) {
+                playNext();
             }
         }
         return START_NOT_STICKY;
@@ -466,7 +812,10 @@ public class MusicService extends Service {
         if (progressHandler != null) {
             progressHandler.removeCallbacksAndMessages(null);
         }
-        // MediaSession cleanup removed
+        if (mediaSession != null) {
+            mediaSession.setActive(false);
+            mediaSession.release();
+            mediaSession = null;
+        }
     }
 }
-

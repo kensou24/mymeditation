@@ -4,11 +4,18 @@ public class FileItem {
     private String name;
     private String path;
     private long size;
+    private long lastModified;
 
-    public FileItem(String name, String path, long size) {
+    public FileItem(String name, String path, long size, long lastModified) {
         this.name = name;
         this.path = path;
         this.size = size;
+        this.lastModified = lastModified;
+    }
+
+    // 兼容旧调用
+    public FileItem(String name, String path, long size) {
+        this(name, path, size, 0);
     }
 
     public String getName() {
@@ -23,6 +30,10 @@ public class FileItem {
         return size;
     }
 
+    public long getLastModified() {
+        return lastModified;
+    }
+
     public String getFormattedSize() {
         if (size < 1024) {
             return size + " B";
@@ -33,5 +44,3 @@ public class FileItem {
         }
     }
 }
-
-
