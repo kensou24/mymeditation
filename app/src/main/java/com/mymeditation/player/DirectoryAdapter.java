@@ -46,8 +46,8 @@ public class DirectoryAdapter extends RecyclerView.Adapter<DirectoryAdapter.View
 
         // T15: 应用主题颜色
         if (themeColors != null) {
-            holder.textViewDirectoryName.setTextColor(themeColors.primaryDark);
-            holder.textViewFileCount.setTextColor(themeColors.primary);
+            holder.textViewDirectoryName.setTextColor(themeColors.textOnSurface);
+            holder.textViewFileCount.setTextColor(themeColors.accent);
         }
 
         holder.itemView.setOnClickListener(v -> {

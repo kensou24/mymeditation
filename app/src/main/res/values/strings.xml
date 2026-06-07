@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">冥想播放器</string>
-    <string name="app_title">🧘 冥想播放器</string>
-    <string name="select_directory">📂 选择目录</string>
-    <string name="select_file">🎵 选择文件</string>
+    <string name="app_title">冥想播放器</string>
+    <string name="select_directory">选择目录</string>
+    <string name="select_file">选择文件</string>
     <string name="play">播放</string>
     <string name="pause">暂停</string>
     <string name="stop">停止</string>
@@ -29,11 +29,11 @@
 
     <!-- 主题 -->
     <string name="theme_dialog_title">选择皮肤主题</string>
-    <string name="theme_ocean_blue">海洋蓝</string>
-    <string name="theme_forest_green">森林绿</string>
-    <string name="theme_sunset_orange">日落橙</string>
-    <string name="theme_lavender_purple">薰衣草紫</string>
-    <string name="theme_deep_blue">深蓝</string>
+    <string name="theme_ocean_blue">Claude 暖橙</string>
+    <string name="theme_forest_green">Claude 蓝</string>
+    <string name="theme_sunset_orange">Claude 绿</string>
+    <string name="theme_lavender_purple">Claude 暗黑</string>
+    <string name="theme_deep_blue">Claude 暖灰</string>
     <string name="theme_changed">已切换到：%s</string>
 
     <!-- 对话框 -->
