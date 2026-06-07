@@ -4,21 +4,33 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 冥想主题图标：简洁的圆形设计，使用应用主题颜色 -->
-    <!-- 外圈 - 使用 accent 颜色（浅绿色） -->
+    <!-- 冥想莲花图标：5 瓣莲花 + 顶部光点 -->
+    <!-- 中心花瓣（最高） -->
     <path
-        android:fillColor="@color/accent"
-        android:pathData="M54,18c19.9,0 36,16.1 36,36s-16.1,36 -36,36 -36,-16.1 -36,-36 16.1,-36 36,-36z"/>
-    <!-- 中圈 - 使用 primary_light 颜色（浅蓝色） -->
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26 C65,36 65,58 54,72 C43,58 43,36 54,26 Z" />
+    <!-- 左内花瓣 -->
     <path
-        android:fillColor="@color/primary_light"
-        android:pathData="M54,28c14.9,0 27,12.1 27,27s-12.1,27 -27,27 -27,-12.1 -27,-27 12.1,-27 27,-27z"/>
-    <!-- 内圈 - 使用白色，代表纯净和宁静 -->
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.92"
+        android:pathData="M38,38 C28,46 28,62 42,68 C46,58 42,46 38,38 Z" />
+    <!-- 右内花瓣 -->
     <path
-        android:fillColor="@color/text_white"
-        android:pathData="M54,40c9.9,0 18,8.1 18,18s-8.1,18 -18,18 -18,-8.1 -18,-18 8.1,-18 18,-18z"/>
-    <!-- 中心点 - 使用 accent 颜色，代表内心的平静 -->
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.92"
+        android:pathData="M70,38 C80,46 80,62 66,68 C62,58 66,46 70,38 Z" />
+    <!-- 左外花瓣 -->
     <path
-        android:fillColor="@color/accent"
-        android:pathData="M54,52c3.3,0 6,2.7 6,6s-2.7,6 -6,6 -6,-2.7 -6,-6 2.7,-6 6,-6z"/>
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.78"
+        android:pathData="M24,52 C18,58 24,68 40,70 C36,62 28,54 24,52 Z" />
+    <!-- 右外花瓣 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.78"
+        android:pathData="M84,52 C90,58 84,68 68,70 C72,62 80,54 84,52 Z" />
+    <!-- 顶部光点（Claude 蓝） -->
+    <path
+        android:fillColor="#6A9BCC"
+        android:pathData="M54,14 A6,6 0 1,1 54,14.01 Z" />
 </vector>

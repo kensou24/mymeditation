@@ -58,8 +58,8 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
 
         // T15: 应用主题颜色到文字
         if (themeColors != null) {
-            holder.textViewFileName.setTextColor(themeColors.primaryDark);
-            holder.textViewFileSize.setTextColor(themeColors.primary);
+            holder.textViewFileName.setTextColor(themeColors.textOnSurface);
+            holder.textViewFileSize.setTextColor(themeColors.accent);
         }
 
         holder.itemView.setOnClickListener(v -> {

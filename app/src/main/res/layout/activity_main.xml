@@ -9,10 +9,11 @@
     <LinearLayout
         android:id="@+id/headerLayout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="56dp"
         android:orientation="horizontal"
         android:background="@color/primary"
-        android:padding="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
         android:gravity="center_vertical"
         android:elevation="4dp">
 
@@ -27,10 +28,12 @@
 
         <Button
             android:id="@+id/buttonSettings"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:text="⚙️"
-            android:textSize="20sp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:drawableStart="@drawable/ic_settings"
+            android:drawablePadding="0dp"
+            android:text=""
+            android:textSize="0sp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:padding="0dp"
             android:minWidth="0dp"
@@ -57,18 +60,18 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/select_directory"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
-                android:paddingBottom="12dp"
-                android:paddingTop="8dp" />
+                android:paddingBottom="8dp"
+                android:paddingTop="4dp" />
 
-            <!-- T17: 加载进度条 -->
+            <!-- 加载进度条 -->
             <ProgressBar
                 android:id="@+id/progressBar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="8dp"
                 android:visibility="gone"
                 style="?android:attr/progressBarStyleHorizontal" />
 
@@ -84,7 +87,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingTop="24dp"
+                android:paddingTop="16dp"
                 android:paddingBottom="8dp">
 
                 <TextView
@@ -93,7 +96,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/select_file"
-                    android:textSize="18sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary"
                     android:visibility="gone" />
@@ -101,13 +104,13 @@
                 <Button
                     android:id="@+id/buttonSort"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
+                    android:layout_height="40dp"
                     android:text="@string/sort_by_name"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="@color/text_white"
                     android:background="@drawable/button_icon_primary"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
                     android:minHeight="0dp"
                     android:minWidth="0dp"
                     android:visibility="gone"
@@ -131,21 +134,25 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/player_background"
-        android:padding="20dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
         android:elevation="8dp">
 
-        <!-- 状态和文件名 -->
+        <!-- 状态文字 -->
         <TextView
             android:id="@+id/textViewStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/stopped"
             android:textColor="@color/text_white"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:paddingBottom="8dp"
-            android:alpha="0.8" />
+            android:alpha="0.6"
+            android:paddingBottom="4dp" />
 
+        <!-- 当前文件名 -->
         <TextView
             android:id="@+id/textViewCurrentFile"
             android:layout_width="match_parent"
@@ -154,7 +161,7 @@
             android:textColor="@color/text_white"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:paddingBottom="16dp"
+            android:paddingBottom="12dp"
             android:ellipsize="end"
             android:maxLines="1" />
 
@@ -164,7 +171,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingBottom="20dp">
+            android:paddingBottom="16dp">
 
             <TextView
                 android:id="@+id/textViewCurrentTime"
@@ -172,9 +179,9 @@
                 android:layout_height="wrap_content"
                 android:text="00:00"
                 android:textColor="@color/text_white"
-                android:textSize="13sp"
-                android:minWidth="40dp"
-                android:alpha="0.9" />
+                android:textSize="12sp"
+                android:minWidth="36dp"
+                android:alpha="0.7" />
 
             <SeekBar
                 android:id="@+id/seekBarProgress"
@@ -185,8 +192,8 @@
                 android:progress="0"
                 android:progressTint="@color/accent"
                 android:thumbTint="@color/accent"
-                android:layout_marginStart="12dp"
-                android:layout_marginEnd="12dp" />
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp" />
 
             <TextView
                 android:id="@+id/textViewTotalTime"
@@ -194,27 +201,27 @@
                 android:layout_height="wrap_content"
                 android:text="00:00"
                 android:textColor="@color/text_white"
-                android:textSize="13sp"
-                android:minWidth="40dp"
-                android:alpha="0.9" />
+                android:textSize="12sp"
+                android:minWidth="36dp"
+                android:alpha="0.7" />
         </LinearLayout>
 
-        <!-- 播放控制按钮 -->
+        <!-- 主播放控件: 上一首 | 播放/暂停 | 下一首 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingBottom="12dp">
+            android:paddingBottom="8dp">
 
             <Button
                 android:id="@+id/buttonPrevious"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
-                android:layout_weight="1"
+                android:layout_weight="2"
                 android:text="@string/previous"
                 android:textColor="@color/text_white"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:background="@drawable/button_icon_primary"
                 android:drawableStart="@drawable/ic_previous"
@@ -223,18 +230,18 @@
                 android:minHeight="0dp"
                 android:minWidth="0dp"
                 android:padding="0dp"
-                android:layout_marginEnd="4dp"
+                android:layout_marginEnd="6dp"
                 android:elevation="2dp"
                 android:includeFontPadding="false" />
 
             <Button
                 android:id="@+id/buttonPlay"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                android:layout_height="56dp"
+                android:layout_weight="3"
                 android:text="@string/play"
                 android:textColor="@color/text_white"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
                 android:background="@drawable/button_icon_accent"
                 android:drawableStart="@drawable/ic_play"
@@ -243,19 +250,19 @@
                 android:minHeight="0dp"
                 android:minWidth="0dp"
                 android:padding="0dp"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:elevation="2dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:elevation="4dp"
                 android:includeFontPadding="false" />
 
             <Button
                 android:id="@+id/buttonPause"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
+                android:layout_height="56dp"
+                android:layout_weight="3"
                 android:text="@string/pause"
                 android:textColor="@color/text_white"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
                 android:background="@drawable/button_icon_primary"
                 android:drawableStart="@drawable/ic_pause"
@@ -264,67 +271,20 @@
                 android:minHeight="0dp"
                 android:minWidth="0dp"
                 android:padding="0dp"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:elevation="2dp"
-                android:includeFontPadding="false" />
-
-            <Button
-                android:id="@+id/buttonStop"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="@string/stop"
-                android:textColor="@color/text_white"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_stop"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginStart="4dp"
-                android:elevation="2dp"
-                android:includeFontPadding="false" />
-        </LinearLayout>
-
-        <!-- 播放模式与下一首 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingBottom="16dp">
-
-            <Button
-                android:id="@+id/buttonPlayMode"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:text="@string/mode_sequence"
-                android:textColor="@color/text_white"
-                android:textSize="12sp"
-                android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_repeat"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginEnd="4dp"
-                android:elevation="2dp"
-                android:includeFontPadding="false" />
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:elevation="4dp"
+                android:includeFontPadding="false"
+                android:visibility="gone" />
 
             <Button
                 android:id="@+id/buttonNext"
                 android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
+                android:layout_height="48dp"
+                android:layout_weight="2"
                 android:text="@string/next"
                 android:textColor="@color/text_white"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:background="@drawable/button_icon_primary"
                 android:drawableStart="@drawable/ic_next"
@@ -333,72 +293,75 @@
                 android:minHeight="0dp"
                 android:minWidth="0dp"
                 android:padding="0dp"
-                android:layout_marginStart="4dp"
+                android:layout_marginStart="6dp"
                 android:elevation="2dp"
                 android:includeFontPadding="false" />
+
         </LinearLayout>
 
-        <!-- 定时设置 -->
+        <!-- 次级控件: 播放模式 | 定时器 | 停止 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@color/player_background_light"
-            android:padding="12dp"
-            android:layout_marginTop="8dp">
-
-            <EditText
-                android:id="@+id/editTextTimer"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:hint="@string/timer_hint"
-                android:inputType="number"
-                android:background="@drawable/card_background"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:textColor="@color/text_primary"
-                android:textColorHint="@color/text_secondary"
-                android:gravity="center_vertical"
-                android:layout_marginEnd="12dp" />
+            android:gravity="center_vertical">
 
             <Button
-                android:id="@+id/buttonSetTimer"
+                android:id="@+id/buttonPlayMode"
                 android:layout_width="0dp"
-                android:layout_height="56dp"
+                android:layout_height="40dp"
                 android:layout_weight="1"
-                android:text="@string/set_timer"
+                android:text="@string/mode_sequence"
                 android:textColor="@color/text_white"
-                android:textSize="14sp"
-                android:textStyle="bold"
+                android:textSize="11sp"
                 android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_timer"
+                android:drawableStart="@drawable/ic_repeat"
                 android:drawablePadding="1dp"
                 android:gravity="center"
-                android:padding="0dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
-                android:layout_marginEnd="8dp"
+                android:padding="0dp"
+                android:layout_marginEnd="6dp"
                 android:elevation="2dp"
                 android:includeFontPadding="false" />
 
             <Button
-                android:id="@+id/buttonCancelTimer"
+                android:id="@+id/buttonSetTimer"
                 android:layout_width="0dp"
-                android:layout_height="56dp"
+                android:layout_height="40dp"
                 android:layout_weight="1"
-                android:text="@string/cancel_timer"
+                android:text="@string/timer_hint"
                 android:textColor="@color/text_white"
-                android:textSize="14sp"
-                android:textStyle="bold"
+                android:textSize="11sp"
                 android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_cancel"
+                android:drawableStart="@drawable/ic_timer"
                 android:drawablePadding="1dp"
                 android:gravity="center"
-                android:padding="0dp"
                 android:minHeight="0dp"
                 android:minWidth="0dp"
+                android:padding="0dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:elevation="2dp"
+                android:includeFontPadding="false" />
+
+            <Button
+                android:id="@+id/buttonStop"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:text="@string/stop"
+                android:textColor="@color/text_white"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/button_icon_primary"
+                android:drawableStart="@drawable/ic_stop"
+                android:drawablePadding="1dp"
+                android:gravity="center"
+                android:minHeight="0dp"
+                android:minWidth="0dp"
+                android:padding="0dp"
+                android:layout_marginStart="6dp"
                 android:elevation="2dp"
                 android:includeFontPadding="false" />
         </LinearLayout>
@@ -409,9 +372,9 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textColor="@color/accent"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:paddingTop="12dp"
+            android:paddingTop="6dp"
             android:gravity="center"
             android:visibility="gone" />
     </LinearLayout>

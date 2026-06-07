@@ -65,11 +65,10 @@ public class MainActivity extends AppCompatActivity {
 
     private Button buttonPlay, buttonPause, buttonStop;
     private Button buttonPrevious, buttonNext;
-    private Button buttonPlayMode, buttonSetTimer, buttonCancelTimer;
+    private Button buttonPlayMode, buttonSetTimer;
     private Button buttonSort;
     private TextView textViewStatus, textViewTimer, textViewDirectoryTitle, textViewFileTitle;
     private TextView textViewCurrentFile, textViewCurrentTime, textViewTotalTime;
-    private EditText editTextTimer;
     private SeekBar seekBarProgress;
     private ProgressBar progressBar;
     private String selectedDirectoryPath;
@@ -86,7 +85,11 @@ public class MainActivity extends AppCompatActivity {
             musicService = binder.getService();
             isServiceBound = true;
             musicService.setProgressCallback((currentPosition, duration, fileName) -> {
-                runOnUiThread(() -> updateProgress(currentPosition, duration, fileName));
+                runOnUiThread(() -> {
+                    updateProgress(currentPosition, duration, fileName);
+                    // 确保 async prepare 完成后 UI 状态同步更新
+                    updateUI();
+                });
             });
             musicService.setTimerCallback(new MusicService.TimerCallback() {
                 @Override
@@ -187,7 +190,6 @@ public class MainActivity extends AppCompatActivity {
         buttonNext = findViewById(R.id.buttonNext);
         buttonPlayMode = findViewById(R.id.buttonPlayMode);
         buttonSetTimer = findViewById(R.id.buttonSetTimer);
-        buttonCancelTimer = findViewById(R.id.buttonCancelTimer);
         buttonSort = findViewById(R.id.buttonSort);
         textViewStatus = findViewById(R.id.textViewStatus);
         textViewTimer = findViewById(R.id.textViewTimer);
@@ -196,7 +198,6 @@ public class MainActivity extends AppCompatActivity {
         textViewCurrentFile = findViewById(R.id.textViewCurrentFile);
         textViewCurrentTime = findViewById(R.id.textViewCurrentTime);
         textViewTotalTime = findViewById(R.id.textViewTotalTime);
-        editTextTimer = findViewById(R.id.editTextTimer);
         seekBarProgress = findViewById(R.id.seekBarProgress);
         progressBar = findViewById(R.id.progressBar);
 
@@ -208,11 +209,11 @@ public class MainActivity extends AppCompatActivity {
         buttonPrevious.setOnClickListener(v -> playPrevious());
         buttonNext.setOnClickListener(v -> playNext());
         buttonPlayMode.setOnClickListener(v -> cyclePlayMode());
-        buttonSetTimer.setOnClickListener(v -> setTimer());
-        buttonCancelTimer.setOnClickListener(v -> cancelTimer());
+        buttonSetTimer.setOnClickListener(v -> showTimerDialog());
         buttonSort.setOnClickListener(v -> cycleSortMode());
         if (buttonSettings != null) {
             buttonSettings.setOnClickListener(v -> showThemeDialog());
+            setButtonIcon(buttonSettings, R.drawable.ic_settings);
         }
 
         setButtonIcon(buttonPlay, R.drawable.ic_play);
@@ -221,7 +222,6 @@ public class MainActivity extends AppCompatActivity {
         setButtonIcon(buttonPrevious, R.drawable.ic_previous);
         setButtonIcon(buttonNext, R.drawable.ic_next);
         setButtonIcon(buttonSetTimer, R.drawable.ic_timer);
-        setButtonIcon(buttonCancelTimer, R.drawable.ic_cancel);
 
         updatePlayModeButton();
         updateSortButton();
@@ -233,7 +233,6 @@ public class MainActivity extends AppCompatActivity {
         setupButtonLayout(buttonNext);
         setupButtonLayout(buttonPlayMode);
         setupButtonLayout(buttonSetTimer);
-        setupButtonLayout(buttonCancelTimer);
         setupButtonLayout(buttonSort);
 
         if (buttonSettings != null) {
@@ -386,11 +385,11 @@ public class MainActivity extends AppCompatActivity {
                 getString(R.string.theme_deep_blue)
         };
         int[] themeValues = {
-                ThemeManager.THEME_OCEAN_BLUE,
-                ThemeManager.THEME_FOREST_GREEN,
-                ThemeManager.THEME_SUNSET_ORANGE,
-                ThemeManager.THEME_LAVENDER_PURPLE,
-                ThemeManager.THEME_DEEP_BLUE
+                ThemeManager.THEME_CLAUDE_ORANGE,
+                ThemeManager.THEME_CLAUDE_BLUE,
+                ThemeManager.THEME_CLAUDE_GREEN,
+                ThemeManager.THEME_CLAUDE_DARK,
+                ThemeManager.THEME_CLAUDE_WARM
         };
 
         int currentTheme = themeManager.getCurrentTheme();
@@ -421,6 +420,12 @@ public class MainActivity extends AppCompatActivity {
     private void applyTheme() {
         ThemeManager.ThemeColors colors = themeManager.getThemeColors();
 
+        // 更新整体背景
+        View rootView = findViewById(android.R.id.content);
+        if (rootView != null) {
+            rootView.setBackgroundColor(colors.background);
+        }
+
         View headerLayout = findViewById(R.id.headerLayout);
         if (headerLayout != null) {
             headerLayout.setBackgroundColor(colors.primary);
@@ -432,7 +437,17 @@ public class MainActivity extends AppCompatActivity {
                     GradientDrawable.Orientation.TOP_BOTTOM,
                     new int[]{colors.playerBackground, colors.playerBackgroundLight}
             );
+            gradient.setCornerRadius((int) (20 * getResources().getDisplayMetrics().density));
             playerLayout.setBackground(gradient);
+        }
+
+        // 内容区文字颜色（暗黑主题需要亮色文字）
+        int sectionTextColor = colors.textOnSurface;
+        if (textViewDirectoryTitle != null) {
+            textViewDirectoryTitle.setTextColor(sectionTextColor);
+        }
+        if (textViewFileTitle != null) {
+            textViewFileTitle.setTextColor(sectionTextColor);
         }
 
         updateButtonColors(colors);
@@ -457,12 +472,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private StateListDrawable createThemedButtonBg(int normalColor) {
+        int radius = (int) (12 * getResources().getDisplayMetrics().density);
         GradientDrawable normal = new GradientDrawable();
-        normal.setCornerRadius(8);
+        normal.setCornerRadius(radius);
         normal.setColor(normalColor);
 
         GradientDrawable disabled = new GradientDrawable();
-        disabled.setCornerRadius(8);
+        disabled.setCornerRadius(radius);
         disabled.setColor(0xFFCCCCCC);
 
         StateListDrawable sld = new StateListDrawable();
@@ -478,8 +494,7 @@ public class MainActivity extends AppCompatActivity {
         if (buttonPrevious != null) buttonPrevious.setBackground(createThemedButtonBg(colors.primary));
         if (buttonNext != null) buttonNext.setBackground(createThemedButtonBg(colors.primary));
         if (buttonPlayMode != null) buttonPlayMode.setBackground(createThemedButtonBg(colors.primaryLight));
-        if (buttonSetTimer != null) buttonSetTimer.setBackground(createThemedButtonBg(colors.primary));
-        if (buttonCancelTimer != null) buttonCancelTimer.setBackground(createThemedButtonBg(colors.primary));
+        if (buttonSetTimer != null) buttonSetTimer.setBackground(createThemedButtonBg(colors.primaryLight));
         if (buttonSort != null) buttonSort.setBackground(createThemedButtonBg(colors.primaryLight));
     }
 
@@ -789,31 +804,63 @@ public class MainActivity extends AppCompatActivity {
 
     // ===== 定时器 =====
 
-    private void setTimer() {
-        String minutesStr = editTextTimer.getText().toString();
-        if (minutesStr.isEmpty()) {
-            Toast.makeText(this, R.string.timer_input_hint, Toast.LENGTH_SHORT).show();
-            return;
+    private void showTimerDialog() {
+        // 如果已有定时器，显示取消选项
+        boolean timerActive = isServiceBound && musicService != null && musicService.isTimerActive();
+
+        LinearLayout dialogLayout = new LinearLayout(this);
+        dialogLayout.setOrientation(LinearLayout.VERTICAL);
+        dialogLayout.setPadding(48, 32, 48, 16);
+
+        EditText input = new EditText(this);
+        input.setHint(R.string.timer_hint);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setGravity(android.view.Gravity.CENTER);
+        if (timerActive) {
+            input.setEnabled(false);
+            input.setAlpha(0.4f);
         }
-        try {
-            int minutes = Integer.parseInt(minutesStr);
-            if (minutes <= 0) {
-                Toast.makeText(this, R.string.timer_invalid, Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (minutes > MAX_TIMER_MINUTES) {
-                Toast.makeText(this, getString(R.string.timer_max_exceeded, MAX_TIMER_MINUTES), Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (isServiceBound && musicService != null) {
-                musicService.setTimer(minutes);
-                updateTimerDisplay(musicService.getRemainingSeconds());
-                editTextTimer.setText("");
-                Toast.makeText(this, getString(R.string.timer_set, minutes), Toast.LENGTH_SHORT).show();
-            }
-        } catch (NumberFormatException e) {
-            Toast.makeText(this, R.string.timer_invalid_number, Toast.LENGTH_SHORT).show();
+        dialogLayout.addView(input);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.timer_hint);
+        builder.setView(dialogLayout);
+
+        if (timerActive) {
+            builder.setPositiveButton(R.string.cancel_timer, (dialog, which) -> {
+                cancelTimer();
+            });
+            builder.setNegativeButton(R.string.dialog_cancel, null);
+        } else {
+            builder.setPositiveButton(R.string.set_timer, (dialog, which) -> {
+                String minutesStr = input.getText().toString().trim();
+                if (minutesStr.isEmpty()) {
+                    Toast.makeText(this, R.string.timer_input_hint, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                try {
+                    int minutes = Integer.parseInt(minutesStr);
+                    if (minutes <= 0) {
+                        Toast.makeText(this, R.string.timer_invalid, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (minutes > MAX_TIMER_MINUTES) {
+                        Toast.makeText(this, getString(R.string.timer_max_exceeded, MAX_TIMER_MINUTES), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (isServiceBound && musicService != null) {
+                        musicService.setTimer(minutes);
+                        updateTimerDisplay(musicService.getRemainingSeconds());
+                        Toast.makeText(this, getString(R.string.timer_set, minutes), Toast.LENGTH_SHORT).show();
+                    }
+                } catch (NumberFormatException e) {
+                    Toast.makeText(this, R.string.timer_invalid_number, Toast.LENGTH_SHORT).show();
+                }
+            });
+            builder.setNegativeButton(R.string.dialog_cancel, null);
         }
+
+        builder.show();
     }
 
     private void cancelTimer() {
@@ -871,7 +918,9 @@ public class MainActivity extends AppCompatActivity {
             case MusicService.STATE_PLAYING:
                 textViewStatus.setText(R.string.status_playing);
                 buttonPlay.setEnabled(false);
+                buttonPlay.setVisibility(View.GONE);
                 buttonPause.setEnabled(true);
+                buttonPause.setVisibility(View.VISIBLE);
                 buttonStop.setEnabled(true);
                 buttonPrevious.setEnabled(true);
                 buttonNext.setEnabled(true);
@@ -884,7 +933,9 @@ public class MainActivity extends AppCompatActivity {
             case MusicService.STATE_PAUSED:
                 textViewStatus.setText(R.string.status_paused);
                 buttonPlay.setEnabled(true);
+                buttonPlay.setVisibility(View.VISIBLE);
                 buttonPause.setEnabled(false);
+                buttonPause.setVisibility(View.GONE);
                 buttonStop.setEnabled(true);
                 buttonPrevious.setEnabled(true);
                 buttonNext.setEnabled(true);
@@ -897,7 +948,9 @@ public class MainActivity extends AppCompatActivity {
             case MusicService.STATE_STOPPED:
                 textViewStatus.setText(R.string.status_stopped);
                 buttonPlay.setEnabled(true);
+                buttonPlay.setVisibility(View.VISIBLE);
                 buttonPause.setEnabled(false);
+                buttonPause.setVisibility(View.GONE);
                 buttonStop.setEnabled(false);
                 buttonPrevious.setEnabled(false);
                 buttonNext.setEnabled(false);
