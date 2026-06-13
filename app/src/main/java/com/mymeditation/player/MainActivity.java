@@ -15,11 +15,13 @@ import android.os.IBinder;
 import android.provider.Settings;
 import android.view.View;
 import android.app.AlertDialog;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
-import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
@@ -34,10 +36,13 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -63,20 +68,24 @@ public class MainActivity extends AppCompatActivity {
     private MusicService musicService;
     private boolean isServiceBound = false;
 
-    private Button buttonPlay, buttonPause, buttonStop;
-    private Button buttonPrevious, buttonNext;
-    private Button buttonPlayMode, buttonSetTimer;
-    private Button buttonSort;
+    private ImageButton buttonPlay, buttonPause, buttonStop;
+    private ImageButton buttonPrevious, buttonNext;
+    private ImageButton buttonPlayMode, buttonSetTimer;
+    private MaterialButton buttonSort;
+    private ImageButton buttonSettings;
     private TextView textViewStatus, textViewTimer, textViewDirectoryTitle, textViewFileTitle;
     private TextView textViewCurrentFile, textViewCurrentTime, textViewTotalTime;
     private SeekBar seekBarProgress;
     private ProgressBar progressBar;
+    private MaterialToolbar toolbar;
+    private View playerLayout;
     private String selectedDirectoryPath;
     private String selectedFilePath;
     private boolean isSeekBarUserSeeking = false;
     private ThemeManager themeManager;
     private int currentSortMode = SORT_NAME;
     private SharedPreferences prefs;
+    private boolean playerBarAnimated = false;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -181,6 +190,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initViews() {
+        toolbar = findViewById(R.id.toolbar);
         recyclerViewDirectories = findViewById(R.id.recyclerViewDirectories);
         recyclerViewFiles = findViewById(R.id.recyclerViewFiles);
         buttonPlay = findViewById(R.id.buttonPlay);
@@ -191,6 +201,7 @@ public class MainActivity extends AppCompatActivity {
         buttonPlayMode = findViewById(R.id.buttonPlayMode);
         buttonSetTimer = findViewById(R.id.buttonSetTimer);
         buttonSort = findViewById(R.id.buttonSort);
+        buttonSettings = findViewById(R.id.buttonSettings);
         textViewStatus = findViewById(R.id.textViewStatus);
         textViewTimer = findViewById(R.id.textViewTimer);
         textViewDirectoryTitle = findViewById(R.id.textViewDirectoryTitle);
@@ -200,9 +211,9 @@ public class MainActivity extends AppCompatActivity {
         textViewTotalTime = findViewById(R.id.textViewTotalTime);
         seekBarProgress = findViewById(R.id.seekBarProgress);
         progressBar = findViewById(R.id.progressBar);
+        playerLayout = findViewById(R.id.playerLayout);
 
-        Button buttonSettings = findViewById(R.id.buttonSettings);
-
+        // Click listeners
         buttonPlay.setOnClickListener(v -> playMusic());
         buttonPause.setOnClickListener(v -> pauseMusic());
         buttonStop.setOnClickListener(v -> stopMusic());
@@ -213,31 +224,15 @@ public class MainActivity extends AppCompatActivity {
         buttonSort.setOnClickListener(v -> cycleSortMode());
         if (buttonSettings != null) {
             buttonSettings.setOnClickListener(v -> showThemeDialog());
-            setButtonIcon(buttonSettings, R.drawable.ic_settings);
         }
 
-        setButtonIcon(buttonPlay, R.drawable.ic_play);
-        setButtonIcon(buttonPause, R.drawable.ic_pause);
-        setButtonIcon(buttonStop, R.drawable.ic_stop);
-        setButtonIcon(buttonPrevious, R.drawable.ic_previous);
-        setButtonIcon(buttonNext, R.drawable.ic_next);
-        setButtonIcon(buttonSetTimer, R.drawable.ic_timer);
+        // Add spacing decorations to RecyclerViews
+        int itemSpacing = (int) getResources().getDimension(R.dimen.item_spacing);
+        recyclerViewDirectories.addItemDecoration(new SpacingItemDecoration(itemSpacing));
+        recyclerViewFiles.addItemDecoration(new SpacingItemDecoration(itemSpacing));
 
         updatePlayModeButton();
         updateSortButton();
-
-        setupButtonLayout(buttonPlay);
-        setupButtonLayout(buttonPause);
-        setupButtonLayout(buttonStop);
-        setupButtonLayout(buttonPrevious);
-        setupButtonLayout(buttonNext);
-        setupButtonLayout(buttonPlayMode);
-        setupButtonLayout(buttonSetTimer);
-        setupButtonLayout(buttonSort);
-
-        if (buttonSettings != null) {
-            setupButtonLayout(buttonSettings);
-        }
 
         seekBarProgress.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -265,24 +260,6 @@ public class MainActivity extends AppCompatActivity {
 
         fileList = new ArrayList<>();
         recyclerViewFiles.setLayoutManager(new LinearLayoutManager(this));
-    }
-
-    private void setButtonIcon(Button button, int drawableResId) {
-        if (button == null) return;
-        Drawable drawable = ContextCompat.getDrawable(this, drawableResId);
-        if (drawable != null) {
-            drawable.setBounds(0, 0, drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
-            button.setCompoundDrawablesRelative(drawable, null, null, null);
-            int paddingPx = (int) (1 * getResources().getDisplayMetrics().density);
-            button.setCompoundDrawablePadding(paddingPx);
-        }
-    }
-
-    private void setupButtonLayout(Button button) {
-        if (button != null) {
-            button.setMinHeight(0);
-            button.setMinWidth(0);
-        }
     }
 
     // ===== 排序 T18 =====
@@ -337,16 +314,16 @@ public class MainActivity extends AppCompatActivity {
         int mode = (isServiceBound && musicService != null) ? musicService.getPlayMode() : MusicService.MODE_SEQUENCE;
         switch (mode) {
             case MusicService.MODE_SEQUENCE:
-                buttonPlayMode.setText(R.string.mode_sequence);
-                setButtonIcon(buttonPlayMode, R.drawable.ic_repeat);
+                buttonPlayMode.setImageResource(R.drawable.ic_repeat);
+                buttonPlayMode.setContentDescription(getString(R.string.mode_sequence));
                 break;
             case MusicService.MODE_REPEAT_ONE:
-                buttonPlayMode.setText(R.string.mode_repeat_one);
-                setButtonIcon(buttonPlayMode, R.drawable.ic_repeat_one);
+                buttonPlayMode.setImageResource(R.drawable.ic_repeat_one);
+                buttonPlayMode.setContentDescription(getString(R.string.mode_repeat_one));
                 break;
             case MusicService.MODE_SHUFFLE:
-                buttonPlayMode.setText(R.string.mode_shuffle);
-                setButtonIcon(buttonPlayMode, R.drawable.ic_shuffle);
+                buttonPlayMode.setImageResource(R.drawable.ic_shuffle);
+                buttonPlayMode.setContentDescription(getString(R.string.mode_shuffle));
                 break;
         }
     }
@@ -370,7 +347,7 @@ public class MainActivity extends AppCompatActivity {
     // ===== 主题 =====
 
     private void showThemeDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
         builder.setTitle(R.string.theme_dialog_title);
 
         RadioGroup radioGroup = new RadioGroup(this);
@@ -420,28 +397,35 @@ public class MainActivity extends AppCompatActivity {
     private void applyTheme() {
         ThemeManager.ThemeColors colors = themeManager.getThemeColors();
 
-        // 更新整体背景
+        // Update root background
         View rootView = findViewById(android.R.id.content);
         if (rootView != null) {
             rootView.setBackgroundColor(colors.background);
         }
 
-        View headerLayout = findViewById(R.id.headerLayout);
-        if (headerLayout != null) {
-            headerLayout.setBackgroundColor(colors.primary);
+        // Toolbar
+        if (toolbar != null) {
+            toolbar.setBackgroundColor(colors.primary);
         }
 
-        View playerLayout = findViewById(R.id.playerLayout);
+        // Player background gradient
         if (playerLayout != null) {
             GradientDrawable gradient = new GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
                     new int[]{colors.playerBackground, colors.playerBackgroundLight}
             );
-            gradient.setCornerRadius((int) (20 * getResources().getDisplayMetrics().density));
+            float cornerRadius = getResources().getDimension(R.dimen.player_corner_radius);
+            float[] radii = new float[]{
+                    cornerRadius, cornerRadius,  // top-left
+                    cornerRadius, cornerRadius,  // top-right
+                    0, 0,                         // bottom-right
+                    0, 0                          // bottom-left
+            };
+            gradient.setCornerRadii(radii);
             playerLayout.setBackground(gradient);
         }
 
-        // 内容区文字颜色（暗黑主题需要亮色文字）
+        // Section title text color (dark theme needs light text)
         int sectionTextColor = colors.textOnSurface;
         if (textViewDirectoryTitle != null) {
             textViewDirectoryTitle.setTextColor(sectionTextColor);
@@ -450,19 +434,55 @@ public class MainActivity extends AppCompatActivity {
             textViewFileTitle.setTextColor(sectionTextColor);
         }
 
-        updateButtonColors(colors);
+        // Play/pause button circle backgrounds
+        if (buttonPlay != null) {
+            ((GradientDrawable) buttonPlay.getBackground()).setColor(colors.accent);
+            buttonPlay.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+        }
+        if (buttonPause != null) {
+            ((GradientDrawable) buttonPause.getBackground()).setColor(colors.primary);
+            buttonPause.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+        }
 
+        // Icon tinting for secondary buttons
+        android.content.res.ColorStateList whiteTint =
+                android.content.res.ColorStateList.valueOf(Color.WHITE);
+        android.content.res.ColorStateList disabledTint =
+                android.content.res.ColorStateList.valueOf(0xFF666666);
+        android.content.res.ColorStateList secondaryTint =
+                android.content.res.ColorStateList.valueOf(colors.primaryLight);
+
+        tintImageButton(buttonPrevious, whiteTint, disabledTint);
+        tintImageButton(buttonNext, whiteTint, disabledTint);
+        tintImageButton(buttonStop, whiteTint, disabledTint);
+        tintImageButton(buttonPlayMode, secondaryTint, disabledTint);
+        tintImageButton(buttonSetTimer, secondaryTint, disabledTint);
+        tintImageButton(buttonSettings, whiteTint, disabledTint);
+
+        // Seekbar tinting
         if (seekBarProgress != null) {
             seekBarProgress.setProgressTintList(android.content.res.ColorStateList.valueOf(colors.accent));
             seekBarProgress.setThumbTintList(android.content.res.ColorStateList.valueOf(colors.accent));
         }
 
+        // Sort button theming
+        if (buttonSort != null) {
+            buttonSort.setBackgroundColor(colors.primaryLight);
+            buttonSort.setTextColor(Color.WHITE);
+        }
+
+        // Status bar & nav bar
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             getWindow().setStatusBarColor(colors.primaryDark);
             getWindow().setNavigationBarColor(colors.primaryDark);
         }
 
-        // T15: 更新列表项的主题颜色
+        // Timer text color
+        if (textViewTimer != null) {
+            textViewTimer.setTextColor(colors.accent);
+        }
+
+        // Update adapters
         if (directoryAdapter != null) {
             directoryAdapter.setThemeColors(colors);
         }
@@ -471,31 +491,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private StateListDrawable createThemedButtonBg(int normalColor) {
-        int radius = (int) (12 * getResources().getDisplayMetrics().density);
-        GradientDrawable normal = new GradientDrawable();
-        normal.setCornerRadius(radius);
-        normal.setColor(normalColor);
-
-        GradientDrawable disabled = new GradientDrawable();
-        disabled.setCornerRadius(radius);
-        disabled.setColor(0xFFCCCCCC);
-
-        StateListDrawable sld = new StateListDrawable();
-        sld.addState(new int[]{-android.R.attr.state_enabled}, disabled);
-        sld.addState(new int[]{}, normal);
-        return sld;
-    }
-
-    private void updateButtonColors(ThemeManager.ThemeColors colors) {
-        if (buttonPlay != null) buttonPlay.setBackground(createThemedButtonBg(colors.accent));
-        if (buttonPause != null) buttonPause.setBackground(createThemedButtonBg(colors.primary));
-        if (buttonStop != null) buttonStop.setBackground(createThemedButtonBg(colors.primary));
-        if (buttonPrevious != null) buttonPrevious.setBackground(createThemedButtonBg(colors.primary));
-        if (buttonNext != null) buttonNext.setBackground(createThemedButtonBg(colors.primary));
-        if (buttonPlayMode != null) buttonPlayMode.setBackground(createThemedButtonBg(colors.primaryLight));
-        if (buttonSetTimer != null) buttonSetTimer.setBackground(createThemedButtonBg(colors.primaryLight));
-        if (buttonSort != null) buttonSort.setBackground(createThemedButtonBg(colors.primaryLight));
+    private void tintImageButton(ImageButton button,
+                                  android.content.res.ColorStateList enabledTint,
+                                  android.content.res.ColorStateList disabledTint) {
+        if (button == null) return;
+        android.content.res.ColorStateList tintList = new android.content.res.ColorStateList(
+                new int[][]{
+                        new int[]{-android.R.attr.state_enabled},
+                        new int[]{}
+                },
+                new int[]{disabledTint.getDefaultColor(), enabledTint.getDefaultColor()}
+        );
+        button.setImageTintList(tintList);
     }
 
     // ===== 进度 =====
@@ -529,7 +536,7 @@ public class MainActivity extends AppCompatActivity {
         // T12: Android 11+ 使用 MANAGE_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
-                new AlertDialog.Builder(this)
+                new MaterialAlertDialogBuilder(this)
                         .setTitle(R.string.permission_title)
                         .setMessage(R.string.permission_manage_storage_message)
                         .setPositiveButton(R.string.dialog_confirm, (dialog, which) -> {
@@ -702,6 +709,7 @@ public class MainActivity extends AppCompatActivity {
             fileAdapter.setThemeColors(themeManager.getThemeColors());
             recyclerViewFiles.setAdapter(fileAdapter);
         } else {
+            fileAdapter.resetAnimation();
             fileAdapter.notifyDataSetChanged();
         }
 
@@ -822,7 +830,7 @@ public class MainActivity extends AppCompatActivity {
         }
         dialogLayout.addView(input);
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
         builder.setTitle(R.string.timer_hint);
         builder.setView(dialogLayout);
 
@@ -899,16 +907,6 @@ public class MainActivity extends AppCompatActivity {
 
     // ===== UI 状态更新 =====
 
-    private void updateButtonIconAlpha(Button button, boolean enabled) {
-        if (button == null) return;
-        Drawable[] drawables = button.getCompoundDrawablesRelative();
-        for (Drawable d : drawables) {
-            if (d != null) {
-                d.setAlpha(enabled ? 255 : 100);
-            }
-        }
-    }
-
     private void updateUI() {
         if (!isServiceBound || musicService == null) return;
         if (textViewStatus == null || buttonPlay == null) return;
@@ -917,54 +915,78 @@ public class MainActivity extends AppCompatActivity {
         switch (state) {
             case MusicService.STATE_PLAYING:
                 textViewStatus.setText(R.string.status_playing);
-                buttonPlay.setEnabled(false);
-                buttonPlay.setVisibility(View.GONE);
-                buttonPause.setEnabled(true);
-                buttonPause.setVisibility(View.VISIBLE);
+                animatePlayPauseTransition(buttonPlay, buttonPause);
                 buttonStop.setEnabled(true);
                 buttonPrevious.setEnabled(true);
                 buttonNext.setEnabled(true);
-                updateButtonIconAlpha(buttonPlay, false);
-                updateButtonIconAlpha(buttonPause, true);
-                updateButtonIconAlpha(buttonStop, true);
-                updateButtonIconAlpha(buttonPrevious, true);
-                updateButtonIconAlpha(buttonNext, true);
+                setSecondaryAlpha(buttonStop, true);
+                setSecondaryAlpha(buttonPrevious, true);
+                setSecondaryAlpha(buttonNext, true);
                 break;
             case MusicService.STATE_PAUSED:
                 textViewStatus.setText(R.string.status_paused);
-                buttonPlay.setEnabled(true);
-                buttonPlay.setVisibility(View.VISIBLE);
-                buttonPause.setEnabled(false);
-                buttonPause.setVisibility(View.GONE);
+                animatePlayPauseTransition(buttonPause, buttonPlay);
                 buttonStop.setEnabled(true);
                 buttonPrevious.setEnabled(true);
                 buttonNext.setEnabled(true);
-                updateButtonIconAlpha(buttonPlay, true);
-                updateButtonIconAlpha(buttonPause, false);
-                updateButtonIconAlpha(buttonStop, true);
-                updateButtonIconAlpha(buttonPrevious, true);
-                updateButtonIconAlpha(buttonNext, true);
+                setSecondaryAlpha(buttonStop, true);
+                setSecondaryAlpha(buttonPrevious, true);
+                setSecondaryAlpha(buttonNext, true);
                 break;
             case MusicService.STATE_STOPPED:
                 textViewStatus.setText(R.string.status_stopped);
-                buttonPlay.setEnabled(true);
-                buttonPlay.setVisibility(View.VISIBLE);
-                buttonPause.setEnabled(false);
-                buttonPause.setVisibility(View.GONE);
+                animatePlayPauseTransition(buttonPause, buttonPlay);
                 buttonStop.setEnabled(false);
                 buttonPrevious.setEnabled(false);
                 buttonNext.setEnabled(false);
-                updateButtonIconAlpha(buttonPlay, true);
-                updateButtonIconAlpha(buttonPause, false);
-                updateButtonIconAlpha(buttonStop, false);
-                updateButtonIconAlpha(buttonPrevious, false);
-                updateButtonIconAlpha(buttonNext, false);
+                setSecondaryAlpha(buttonStop, false);
+                setSecondaryAlpha(buttonPrevious, false);
+                setSecondaryAlpha(buttonNext, false);
                 if (textViewCurrentFile != null) textViewCurrentFile.setText("");
                 if (textViewCurrentTime != null) textViewCurrentTime.setText("00:00");
                 if (textViewTotalTime != null) textViewTotalTime.setText("00:00");
                 if (seekBarProgress != null) seekBarProgress.setProgress(0);
                 break;
         }
+    }
+
+    /**
+     * Animated crossfade between play and pause buttons.
+     */
+    private void animatePlayPauseTransition(View outgoing, View incoming) {
+        if (outgoing.getVisibility() == View.GONE && incoming.getVisibility() == View.VISIBLE) {
+            // Already in the correct state, skip animation
+            return;
+        }
+        // Animate outgoing view out
+        outgoing.animate()
+                .alpha(0f)
+                .scaleX(0.7f)
+                .scaleY(0.7f)
+                .setDuration(150)
+                .withEndAction(() -> {
+                    outgoing.setVisibility(View.GONE);
+                    outgoing.setScaleX(1f);
+                    outgoing.setScaleY(1f);
+                    outgoing.setAlpha(1f);
+                });
+
+        // Animate incoming view in
+        incoming.setAlpha(0f);
+        incoming.setScaleX(0.7f);
+        incoming.setScaleY(0.7f);
+        incoming.setVisibility(View.VISIBLE);
+        incoming.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(200)
+                .start();
+    }
+
+    private void setSecondaryAlpha(ImageButton button, boolean enabled) {
+        if (button == null) return;
+        button.setImageAlpha(enabled ? 255 : 100);
     }
 
     // ===== 权限回调 =====

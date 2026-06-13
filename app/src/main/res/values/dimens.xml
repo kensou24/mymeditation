@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Spacing scale -->
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_sm">8dp</dimen>
+    <dimen name="spacing_md">12dp</dimen>
+    <dimen name="spacing_lg">16dp</dimen>
+    <dimen name="spacing_xl">24dp</dimen>
+    <dimen name="spacing_xxl">32dp</dimen>
+
+    <!-- Card & Item -->
+    <dimen name="item_corner_radius">16dp</dimen>
+    <dimen name="item_icon_size">44dp</dimen>
+    <dimen name="item_elevation">2dp</dimen>
+    <dimen name="item_spacing">8dp</dimen>
+
+    <!-- Player -->
+    <dimen name="player_corner_radius">24dp</dimen>
+    <dimen name="player_button_primary">56dp</dimen>
+    <dimen name="player_button_secondary">44dp</dimen>
+    <dimen name="player_button_compact">36dp</dimen>
+    <dimen name="seekbar_thumb_size">16dp</dimen>
+
+    <!-- Header -->
+    <dimen name="header_height">56dp</dimen>
+</resources>
