@@ -1,77 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/background">
 
-    <!-- 标题栏 -->
-    <LinearLayout
-        android:id="@+id/headerLayout"
+    <!-- Header Toolbar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:orientation="horizontal"
+        android:layout_height="@dimen/header_height"
         android:background="@color/primary"
-        android:paddingStart="16dp"
-        android:paddingEnd="8dp"
-        android:gravity="center_vertical"
-        android:elevation="4dp">
+        android:elevation="4dp"
+        app:title="@string/app_title"
+        app:titleTextColor="@color/text_white"
+        app:titleTextAppearance="@style/TextAppearance.MyMeditation.Title">
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/app_title"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_white" />
-
-        <Button
+        <ImageButton
             android:id="@+id/buttonSettings"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:drawableStart="@drawable/ic_settings"
-            android:drawablePadding="0dp"
-            android:text=""
-            android:textSize="0sp"
+            android:layout_gravity="end"
+            android:src="@drawable/ic_settings"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:gravity="center" />
-    </LinearLayout>
+            android:contentDescription="@string/theme_dialog_title"
+            android:padding="12dp"
+            app:tint="@color/text_white" />
 
-    <!-- 滚动内容区域 -->
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <!-- Scrollable Content Area -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="@dimen/spacing_lg"
+            android:paddingEnd="@dimen/spacing_lg"
+            android:paddingTop="@dimen/spacing_md"
+            android:paddingBottom="@dimen/spacing_xxl">
 
-            <!-- 目录列表标题 -->
+            <!-- Directory section title -->
             <TextView
                 android:id="@+id/textViewDirectoryTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/select_directory"
-                android:textSize="16sp"
-                android:textStyle="bold"
+                android:textAppearance="@style/TextAppearance.MyMeditation.SectionTitle"
                 android:textColor="@color/text_primary"
-                android:paddingBottom="8dp"
-                android:paddingTop="4dp" />
+                android:paddingBottom="@dimen/spacing_sm"
+                android:paddingTop="@dimen/spacing_xs" />
 
-            <!-- 加载进度条 -->
+            <!-- Loading progress -->
             <ProgressBar
                 android:id="@+id/progressBar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="@dimen/spacing_sm"
                 android:visibility="gone"
                 style="?android:attr/progressBarStyleHorizontal" />
 
@@ -79,16 +71,17 @@
                 android:id="@+id/recyclerViewDirectories"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false" />
+                android:nestedScrollingEnabled="false"
+                android:clipToPadding="false" />
 
-            <!-- 文件列表标题 + 排序按钮 -->
+            <!-- File section title + sort button -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingTop="16dp"
-                android:paddingBottom="8dp">
+                android:paddingTop="@dimen/spacing_md"
+                android:paddingBottom="@dimen/spacing_sm">
 
                 <TextView
                     android:id="@+id/textViewFileTitle"
@@ -96,25 +89,24 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/select_file"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
+                    android:textAppearance="@style/TextAppearance.MyMeditation.SectionTitle"
                     android:textColor="@color/text_primary"
                     android:visibility="gone" />
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonSort"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="40dp"
+                    android:layout_height="36dp"
                     android:text="@string/sort_by_name"
                     android:textSize="13sp"
                     android:textColor="@color/text_white"
-                    android:background="@drawable/button_icon_primary"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
+                    android:visibility="gone"
                     android:minHeight="0dp"
                     android:minWidth="0dp"
-                    android:visibility="gone"
-                    android:elevation="2dp" />
+                    app:cornerRadius="18dp"
+                    app:backgroundTint="@color/primary_light" />
+
             </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
@@ -122,56 +114,55 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false"
+                android:clipToPadding="false"
                 android:visibility="gone" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <!-- 播放控制区域 -->
+    <!-- Player Control Bar -->
     <LinearLayout
         android:id="@+id/playerLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/player_background"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
+        android:paddingStart="@dimen/spacing_xl"
+        android:paddingEnd="@dimen/spacing_xl"
+        android:paddingTop="@dimen/spacing_lg"
+        android:paddingBottom="@dimen/spacing_lg"
         android:elevation="8dp">
 
-        <!-- 状态文字 -->
+        <!-- Status + filename row -->
         <TextView
             android:id="@+id/textViewStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/stopped"
             android:textColor="@color/text_white"
-            android:textSize="12sp"
-            android:textStyle="bold"
+            android:textAppearance="@style/TextAppearance.MyMeditation.PlayerCaption"
             android:alpha="0.6"
-            android:paddingBottom="4dp" />
+            android:paddingBottom="2dp"
+            android:textAllCaps="true" />
 
-        <!-- 当前文件名 -->
         <TextView
             android:id="@+id/textViewCurrentFile"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text=""
             android:textColor="@color/text_white"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:paddingBottom="12dp"
+            android:textAppearance="@style/TextAppearance.MyMeditation.PlayerTitle"
+            android:paddingBottom="@dimen/spacing_md"
             android:ellipsize="end"
             android:maxLines="1" />
 
-        <!-- 进度条 -->
+        <!-- Seekbar row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingBottom="16dp">
+            android:paddingBottom="@dimen/spacing_lg">
 
             <TextView
                 android:id="@+id/textViewCurrentTime"
@@ -180,7 +171,8 @@
                 android:text="00:00"
                 android:textColor="@color/text_white"
                 android:textSize="12sp"
-                android:minWidth="36dp"
+                android:fontFamily="sans-serif-medium"
+                android:minWidth="40dp"
                 android:alpha="0.7" />
 
             <SeekBar
@@ -190,10 +182,13 @@
                 android:layout_weight="1"
                 android:max="100"
                 android:progress="0"
-                android:progressTint="@color/accent"
-                android:thumbTint="@color/accent"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp" />
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:splitTrack="false"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:layout_marginStart="@dimen/spacing_sm"
+                android:layout_marginEnd="@dimen/spacing_sm" />
 
             <TextView
                 android:id="@+id/textViewTotalTime"
@@ -202,181 +197,127 @@
                 android:text="00:00"
                 android:textColor="@color/text_white"
                 android:textSize="12sp"
-                android:minWidth="36dp"
+                android:fontFamily="sans-serif-medium"
+                android:minWidth="40dp"
                 android:alpha="0.7" />
         </LinearLayout>
 
-        <!-- 主播放控件: 上一首 | 播放/暂停 | 下一首 -->
+        <!-- Main transport controls: Previous | Play/Pause | Next -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingBottom="8dp">
+            android:gravity="center"
+            android:paddingBottom="@dimen/spacing_md">
 
-            <Button
+            <ImageButton
                 android:id="@+id/buttonPrevious"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="2"
-                android:text="@string/previous"
-                android:textColor="@color/text_white"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_previous"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginEnd="6dp"
-                android:elevation="2dp"
-                android:includeFontPadding="false" />
+                android:layout_width="@dimen/player_button_secondary"
+                android:layout_height="@dimen/player_button_secondary"
+                android:src="@drawable/ic_previous"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/previous"
+                android:padding="@dimen/spacing_sm"
+                app:tint="@color/text_white" />
 
-            <Button
+            <!-- Play button with circle background -->
+            <ImageButton
                 android:id="@+id/buttonPlay"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="3"
-                android:text="@string/play"
-                android:textColor="@color/text_white"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:background="@drawable/button_icon_accent"
-                android:drawableStart="@drawable/ic_play"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginStart="6dp"
-                android:layout_marginEnd="6dp"
+                android:layout_width="@dimen/player_button_primary"
+                android:layout_height="@dimen/player_button_primary"
+                android:layout_marginStart="@dimen/spacing_md"
+                android:layout_marginEnd="@dimen/spacing_md"
+                android:src="@drawable/ic_play"
+                android:background="@drawable/play_button_circle"
+                android:contentDescription="@string/play"
+                android:padding="@dimen/spacing_md"
                 android:elevation="4dp"
-                android:includeFontPadding="false" />
+                app:tint="@color/text_white" />
 
-            <Button
+            <!-- Pause button with circle background (hidden by default) -->
+            <ImageButton
                 android:id="@+id/buttonPause"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="3"
-                android:text="@string/pause"
-                android:textColor="@color/text_white"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_pause"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginStart="6dp"
-                android:layout_marginEnd="6dp"
+                android:layout_width="@dimen/player_button_primary"
+                android:layout_height="@dimen/player_button_primary"
+                android:layout_marginStart="@dimen/spacing_md"
+                android:layout_marginEnd="@dimen/spacing_md"
+                android:src="@drawable/ic_pause"
+                android:background="@drawable/play_button_circle"
+                android:contentDescription="@string/pause"
+                android:padding="@dimen/spacing_md"
                 android:elevation="4dp"
-                android:includeFontPadding="false"
-                android:visibility="gone" />
+                android:visibility="gone"
+                app:tint="@color/text_white" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/buttonNext"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="2"
-                android:text="@string/next"
-                android:textColor="@color/text_white"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_next"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginStart="6dp"
-                android:elevation="2dp"
-                android:includeFontPadding="false" />
+                android:layout_width="@dimen/player_button_secondary"
+                android:layout_height="@dimen/player_button_secondary"
+                android:src="@drawable/ic_next"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/next"
+                android:padding="@dimen/spacing_sm"
+                app:tint="@color/text_white" />
 
         </LinearLayout>
 
-        <!-- 次级控件: 播放模式 | 定时器 | 停止 -->
+        <!-- Secondary controls: PlayMode | Timer | Stop -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center">
 
-            <Button
+            <ImageButton
                 android:id="@+id/buttonPlayMode"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="@dimen/player_button_compact"
                 android:layout_weight="1"
-                android:text="@string/mode_sequence"
-                android:textColor="@color/text_white"
-                android:textSize="11sp"
-                android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_repeat"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginEnd="6dp"
-                android:elevation="2dp"
-                android:includeFontPadding="false" />
+                android:src="@drawable/ic_repeat"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/mode_sequence"
+                android:padding="@dimen/spacing_sm"
+                app:tint="@color/text_white"
+                android:alpha="0.7" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/buttonSetTimer"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="@dimen/player_button_compact"
                 android:layout_weight="1"
-                android:text="@string/timer_hint"
-                android:textColor="@color/text_white"
-                android:textSize="11sp"
-                android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_timer"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginStart="6dp"
-                android:layout_marginEnd="6dp"
-                android:elevation="2dp"
-                android:includeFontPadding="false" />
+                android:src="@drawable/ic_timer"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/timer_hint"
+                android:padding="@dimen/spacing_sm"
+                app:tint="@color/text_white"
+                android:alpha="0.7" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/buttonStop"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="@dimen/player_button_compact"
                 android:layout_weight="1"
-                android:text="@string/stop"
-                android:textColor="@color/text_white"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:background="@drawable/button_icon_primary"
-                android:drawableStart="@drawable/ic_stop"
-                android:drawablePadding="1dp"
-                android:gravity="center"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:padding="0dp"
-                android:layout_marginStart="6dp"
-                android:elevation="2dp"
-                android:includeFontPadding="false" />
+                android:src="@drawable/ic_stop"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/stop"
+                android:padding="@dimen/spacing_sm"
+                app:tint="@color/text_white"
+                android:alpha="0.7" />
+
         </LinearLayout>
 
+        <!-- Timer countdown -->
         <TextView
             android:id="@+id/textViewTimer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text=""
             android:textColor="@color/accent"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:paddingTop="6dp"
+            android:textAppearance="@style/TextAppearance.MyMeditation.Timer"
+            android:paddingTop="@dimen/spacing_sm"
             android:gravity="center"
             android:visibility="gone" />
+
     </LinearLayout>
 
 </LinearLayout>

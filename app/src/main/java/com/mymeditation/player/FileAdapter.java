@@ -1,15 +1,20 @@
 package com.mymeditation.player;
 
 import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.card.MaterialCardView;
 
 import java.util.List;
 
@@ -18,6 +23,7 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
     private OnFileClickListener listener;
     private int selectedPosition = -1;
     private ThemeManager.ThemeColors themeColors;
+    private int lastAnimatedPosition = -1;
 
     public interface OnFileClickListener {
         void onFileClick(FileItem file, int position);
@@ -47,19 +53,61 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         holder.textViewFileName.setText(item.getName());
         holder.textViewFileSize.setText(item.getFormattedSize());
 
-        // 高亮选中的文件
-        if (position == selectedPosition) {
-            int highlightColor = (themeColors != null) ? themeColors.accent : ContextCompat.getColor(
-                    holder.itemView.getContext(), android.R.color.holo_blue_light);
-            holder.itemView.setBackgroundColor(highlightColor);
-        } else {
-            holder.itemView.setBackgroundColor(Color.TRANSPARENT);
+        boolean isSelected = (position == selectedPosition);
+
+        // Now-playing indicator
+        if (holder.viewNowPlayingIndicator != null) {
+            if (isSelected && themeColors != null) {
+                holder.viewNowPlayingIndicator.setVisibility(View.VISIBLE);
+                holder.viewNowPlayingIndicator.setBackgroundColor(themeColors.accent);
+            } else {
+                holder.viewNowPlayingIndicator.setVisibility(View.GONE);
+            }
         }
 
-        // T15: 应用主题颜色到文字
+        // Apply theme colors
         if (themeColors != null) {
-            holder.textViewFileName.setTextColor(themeColors.textOnSurface);
-            holder.textViewFileSize.setTextColor(themeColors.accent);
+            // Card background - use surface color, tint selected cards
+            MaterialCardView card = (MaterialCardView) holder.itemView;
+            if (isSelected) {
+                // Selected: use a light tint of accent for the card
+                card.setCardBackgroundColor(mixColor(themeColors.surface, themeColors.accent, 0.12f));
+                card.setStrokeColor(themeColors.accent);
+                card.setStrokeWidth(2);
+            } else {
+                card.setCardBackgroundColor(themeColors.surface);
+                card.setStrokeColor(Color.TRANSPARENT);
+                card.setStrokeWidth(0);
+            }
+
+            // Text colors
+            holder.textViewFileName.setTextColor(
+                    isSelected ? themeColors.accent : themeColors.textOnSurface);
+            holder.textViewFileSize.setTextColor(themeColors.textSecondary);
+
+            // Icon background tint
+            if (isSelected) {
+                holder.imageViewIconBg.getBackground().setColorFilter(
+                        themeColors.accent, PorterDuff.Mode.SRC_ATOP);
+                holder.imageViewIconBg.setColorFilter(Color.WHITE);
+            } else {
+                holder.imageViewIconBg.getBackground().setColorFilter(
+                        themeColors.primaryLight, PorterDuff.Mode.SRC_ATOP);
+                holder.imageViewIconBg.setColorFilter(themeColors.primary);
+            }
+        }
+
+        // Entrance animation
+        if (position > lastAnimatedPosition) {
+            holder.itemView.setAlpha(0f);
+            holder.itemView.setTranslationY(20f);
+            holder.itemView.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(250)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+            lastAnimatedPosition = position;
         }
 
         holder.itemView.setOnClickListener(v -> {
@@ -86,14 +134,41 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         }
     }
 
+    /**
+     * Reset the animation tracking so items re-animate when list is refreshed.
+     */
+    public void resetAnimation() {
+        lastAnimatedPosition = -1;
+    }
+
+    /**
+     * Mix two colors with a ratio.
+     */
+    private int mixColor(int baseColor, int tintColor, float ratio) {
+        int rBase = Color.red(baseColor);
+        int gBase = Color.green(baseColor);
+        int bBase = Color.blue(baseColor);
+        int rTint = Color.red(tintColor);
+        int gTint = Color.green(tintColor);
+        int bTint = Color.blue(tintColor);
+        int r = (int) (rBase + (rTint - rBase) * ratio);
+        int g = (int) (gBase + (gTint - gBase) * ratio);
+        int b = (int) (bBase + (bTint - bBase) * ratio);
+        return Color.rgb(r, g, b);
+    }
+
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView textViewFileName;
         TextView textViewFileSize;
+        ImageView imageViewIconBg;
+        View viewNowPlayingIndicator;
 
         ViewHolder(View itemView) {
             super(itemView);
             textViewFileName = itemView.findViewById(R.id.textViewFileName);
             textViewFileSize = itemView.findViewById(R.id.textViewFileSize);
+            imageViewIconBg = itemView.findViewById(R.id.imageViewIconBg);
+            viewNowPlayingIndicator = itemView.findViewById(R.id.viewNowPlayingIndicator);
         }
     }
 }

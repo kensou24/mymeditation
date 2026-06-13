@@ -58,7 +58,9 @@ public class ThemeManager {
                     Color.parseColor("#F5F7FA"),
                     Color.parseColor("#1A2332"),
                     Color.parseColor("#2A3A4F"),
-                    Color.parseColor("#1A2332")
+                    Color.parseColor("#1A2332"),
+                    Color.parseColor("#FFFFFF"),
+                    Color.parseColor("#8A9BB0")
                 );
             case THEME_CLAUDE_GREEN:
                 return new ThemeColors(
@@ -70,7 +72,9 @@ public class ThemeManager {
                     Color.parseColor("#F5F7F2"),
                     Color.parseColor("#1A1E16"),
                     Color.parseColor("#2A3224"),
-                    Color.parseColor("#1A1E16")
+                    Color.parseColor("#1A1E16"),
+                    Color.parseColor("#FFFFFF"),
+                    Color.parseColor("#8A9B80")
                 );
             case THEME_CLAUDE_DARK:
                 return new ThemeColors(
@@ -82,7 +86,9 @@ public class ThemeManager {
                     Color.parseColor("#1E1D1C"),
                     Color.parseColor("#141413"),
                     Color.parseColor("#2A2928"),
-                    Color.parseColor("#FAF9F5")
+                    Color.parseColor("#FAF9F5"),
+                    Color.parseColor("#2A2928"),
+                    Color.parseColor("#8A8880")
                 );
             case THEME_CLAUDE_WARM:
                 return new ThemeColors(
@@ -94,7 +100,9 @@ public class ThemeManager {
                     Color.parseColor("#F2F0EB"),
                     Color.parseColor("#2A2928"),
                     Color.parseColor("#3D3B39"),
-                    Color.parseColor("#3D3835")
+                    Color.parseColor("#3D3835"),
+                    Color.parseColor("#FFFFFF"),
+                    Color.parseColor("#9A988F")
                 );
             default: // THEME_CLAUDE_ORANGE
                 return new ThemeColors(
@@ -106,7 +114,9 @@ public class ThemeManager {
                     Color.parseColor("#FAF9F5"),
                     Color.parseColor("#141413"),
                     Color.parseColor("#2A2928"),
-                    Color.parseColor("#3D3835")
+                    Color.parseColor("#3D3835"),
+                    Color.parseColor("#FFFFFF"),
+                    Color.parseColor("#B0AEA5")
                 );
         }
     }
@@ -136,11 +146,13 @@ public class ThemeManager {
         public int playerBackground;
         public int playerBackgroundLight;
         public int textOnSurface;
+        public int surface;
+        public int textSecondary;
 
         public ThemeColors(int primary, int primaryDark, int primaryLight,
                           int accent, int accentDark, int background,
                           int playerBackground, int playerBackgroundLight,
-                          int textOnSurface) {
+                          int textOnSurface, int surface, int textSecondary) {
             this.primary = primary;
             this.primaryDark = primaryDark;
             this.primaryLight = primaryLight;
@@ -150,6 +162,8 @@ public class ThemeManager {
             this.playerBackground = playerBackground;
             this.playerBackgroundLight = playerBackgroundLight;
             this.textOnSurface = textOnSurface;
+            this.surface = surface;
+            this.textSecondary = textSecondary;
         }
     }
 }
