@@ -1,8 +1,9 @@
 package com.mymeditation.player;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
-import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,7 +12,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.card.MaterialCardView;
@@ -24,6 +24,7 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
     private int selectedPosition = -1;
     private ThemeManager.ThemeColors themeColors;
     private int lastAnimatedPosition = -1;
+    private boolean isPlaying = false;
 
     public interface OnFileClickListener {
         void onFileClick(FileItem file, int position);
@@ -37,6 +38,32 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
     public void setThemeColors(ThemeManager.ThemeColors colors) {
         this.themeColors = colors;
         notifyDataSetChanged();
+    }
+
+    /** A3: 按文件路径高亮（与正在播放的曲目同步） */
+    public void highlightByPath(String path) {
+        if (path == null || fileList == null) return;
+        int newIndex = -1;
+        for (int i = 0; i < fileList.size(); i++) {
+            if (path.equals(fileList.get(i).getPath())) {
+                newIndex = i;
+                break;
+            }
+        }
+        if (newIndex == selectedPosition) return;
+        int old = selectedPosition;
+        selectedPosition = newIndex;
+        if (old != -1) notifyItemChanged(old);
+        if (newIndex != -1) notifyItemChanged(newIndex);
+    }
+
+    /** B2: 控制「正在播放」脉冲动画（高亮保留，仅动画随播放状态） */
+    public void setPlaying(boolean playing) {
+        if (this.isPlaying == playing) return;
+        this.isPlaying = playing;
+        if (selectedPosition != -1) {
+            notifyItemChanged(selectedPosition);
+        }
     }
 
     @NonNull
@@ -55,12 +82,18 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
 
         boolean isSelected = (position == selectedPosition);
 
-        // Now-playing indicator
+        // Now-playing indicator + B2 pulse animation
         if (holder.viewNowPlayingIndicator != null) {
             if (isSelected && themeColors != null) {
                 holder.viewNowPlayingIndicator.setVisibility(View.VISIBLE);
                 holder.viewNowPlayingIndicator.setBackgroundColor(themeColors.accent);
+                if (isPlaying) {
+                    startPulse(holder);
+                } else {
+                    stopPulse(holder);
+                }
             } else {
+                stopPulse(holder);
                 holder.viewNowPlayingIndicator.setVisibility(View.GONE);
             }
         }
@@ -70,7 +103,6 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
             // Card background - use surface color, tint selected cards
             MaterialCardView card = (MaterialCardView) holder.itemView;
             if (isSelected) {
-                // Selected: use a light tint of accent for the card
                 card.setCardBackgroundColor(mixColor(themeColors.surface, themeColors.accent, 0.12f));
                 card.setStrokeColor(themeColors.accent);
                 card.setStrokeWidth(2);
@@ -80,12 +112,10 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
                 card.setStrokeWidth(0);
             }
 
-            // Text colors
             holder.textViewFileName.setTextColor(
                     isSelected ? themeColors.accent : themeColors.textOnSurface);
             holder.textViewFileSize.setTextColor(themeColors.textSecondary);
 
-            // Icon background tint
             if (isSelected) {
                 holder.imageViewIconBg.getBackground().setColorFilter(
                         themeColors.accent, PorterDuff.Mode.SRC_ATOP);
@@ -112,13 +142,19 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
 
         holder.itemView.setOnClickListener(v -> {
             int previousSelected = selectedPosition;
-            selectedPosition = position;
-            notifyItemChanged(previousSelected);
-            notifyItemChanged(selectedPosition);
-            if (listener != null) {
-                listener.onFileClick(item, position);
+            selectedPosition = holder.getBindingAdapterPosition();
+            if (previousSelected != -1) notifyItemChanged(previousSelected);
+            if (selectedPosition != -1) notifyItemChanged(selectedPosition);
+            if (listener != null && selectedPosition != -1) {
+                listener.onFileClick(fileList.get(selectedPosition), selectedPosition);
             }
         });
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull ViewHolder holder) {
+        super.onViewRecycled(holder);
+        stopPulse(holder);
     }
 
     @Override
@@ -139,6 +175,28 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
      */
     public void resetAnimation() {
         lastAnimatedPosition = -1;
+    }
+
+    private void startPulse(ViewHolder holder) {
+        if (holder.viewNowPlayingIndicator == null) return;
+        stopPulse(holder);
+        ObjectAnimator anim = ObjectAnimator.ofFloat(
+                holder.viewNowPlayingIndicator, "alpha", 1f, 0.35f);
+        anim.setDuration(700);
+        anim.setRepeatCount(ValueAnimator.INFINITE);
+        anim.setRepeatMode(ValueAnimator.REVERSE);
+        holder.pulseAnimator = anim;
+        anim.start();
+    }
+
+    private void stopPulse(ViewHolder holder) {
+        if (holder.pulseAnimator != null) {
+            holder.pulseAnimator.cancel();
+            holder.pulseAnimator = null;
+        }
+        if (holder.viewNowPlayingIndicator != null) {
+            holder.viewNowPlayingIndicator.setAlpha(1f);
+        }
     }
 
     /**
@@ -162,6 +220,7 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
         TextView textViewFileSize;
         ImageView imageViewIconBg;
         View viewNowPlayingIndicator;
+        ObjectAnimator pulseAnimator;
 
         ViewHolder(View itemView) {
             super(itemView);

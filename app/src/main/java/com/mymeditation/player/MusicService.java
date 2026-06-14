@@ -58,6 +58,9 @@ public class MusicService extends Service {
     private MediaSessionCompat mediaSession;
     private ProgressCallback progressCallback;
     private TimerCallback timerCallback;
+    private TrackChangeListener trackChangeListener;
+    private PlaybackStateListener playbackStateListener;
+    private boolean stopAfterCurrent = false;
 
     // 音频焦点
     private AudioManager audioManager;
@@ -71,6 +74,16 @@ public class MusicService extends Service {
     public interface TimerCallback {
         void onTimerUpdate(long remainingSeconds);
         void onTimerFinished();
+    }
+
+    /** A3: 实际播放曲目发生变化（新曲目 onPrepared 时触发） */
+    public interface TrackChangeListener {
+        void onTrackChanged(String filePath, int index);
+    }
+
+    /** C2: 播放状态变化时触发，避免每秒全量刷新 UI */
+    public interface PlaybackStateListener {
+        void onStateChanged(int state);
     }
 
     private final IBinder binder = new LocalBinder();
@@ -245,6 +258,36 @@ public class MusicService extends Service {
         this.timerCallback = callback;
     }
 
+    public void setTrackChangeListener(TrackChangeListener listener) {
+        this.trackChangeListener = listener;
+    }
+
+    public void setPlaybackStateListener(PlaybackStateListener listener) {
+        this.playbackStateListener = listener;
+    }
+
+    /** A5: 设置「播完本曲后停止」 */
+    public void setStopAfterCurrent(boolean stopAfterCurrent) {
+        this.stopAfterCurrent = stopAfterCurrent;
+    }
+
+    public boolean isStopAfterCurrent() {
+        return stopAfterCurrent;
+    }
+
+    private void notifyTrackChanged() {
+        if (trackChangeListener != null && playlist != null
+                && currentIndex >= 0 && currentIndex < playlist.size()) {
+            trackChangeListener.onTrackChanged(playlist.get(currentIndex), currentIndex);
+        }
+    }
+
+    private void notifyStateChanged() {
+        if (playbackStateListener != null) {
+            playbackStateListener.onStateChanged(playbackState);
+        }
+    }
+
     @Override
     public IBinder onBind(Intent intent) {
         return binder;
@@ -364,7 +407,15 @@ public class MusicService extends Service {
             }
             return true;
         });
-        mediaPlayer.setOnCompletionListener(mp -> playNext());
+        mediaPlayer.setOnCompletionListener(mp -> {
+            // A5: 播完本曲后停止（优先于下一首/循环逻辑）
+            if (stopAfterCurrent) {
+                stopAfterCurrent = false;
+                stop();
+                return;
+            }
+            playNext();
+        });
         try {
             mediaPlayer.setDataSource(filePath);
             mediaPlayer.setOnPreparedListener(mp -> {
@@ -377,6 +428,8 @@ public class MusicService extends Service {
                 if (progressCallback != null) {
                     progressCallback.onProgressUpdate(0, mp.getDuration(), getCurrentFileName());
                 }
+                notifyStateChanged();
+                notifyTrackChanged();
             });
             mediaPlayer.prepareAsync();
         } catch (IOException e) {
@@ -388,7 +441,7 @@ public class MusicService extends Service {
                 }
                 setupMediaPlayer(playlist.get(currentIndex), retryCount + 1);
             } else {
-                playbackState = STATE_STOPPED;
+                stop();
             }
         }
     }
@@ -477,6 +530,7 @@ public class MusicService extends Service {
                 startProgressUpdates();
                 updateNotification();
                 updateMediaSessionState();
+                notifyStateChanged();
             }
             return;
         }
@@ -500,6 +554,7 @@ public class MusicService extends Service {
             stopProgressUpdates();
             updateNotification();
             updateMediaSessionState();
+            notifyStateChanged();
         }
     }
 
@@ -512,6 +567,7 @@ public class MusicService extends Service {
         updateNotification();
         updateMediaSessionState();
         stopForeground(true);
+        notifyStateChanged();
     }
 
     public void playNext() {
