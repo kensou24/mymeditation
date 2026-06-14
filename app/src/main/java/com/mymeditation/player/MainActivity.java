@@ -11,17 +11,21 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.provider.Settings;
+import android.text.InputType;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
-import android.app.AlertDialog;
 import android.graphics.Color;
-import android.graphics.PorterDuff;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.StateListDrawable;
+import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
@@ -30,7 +34,9 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -44,6 +50,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_CODE = 100;
@@ -63,12 +71,12 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerViewFiles;
     private DirectoryAdapter directoryAdapter;
     private FileAdapter fileAdapter;
-    private List<DirectoryItem> directoryList;
-    private List<FileItem> fileList;
+    private final List<DirectoryItem> directoryList = new ArrayList<>();
+    private final List<FileItem> fileList = new ArrayList<>();
     private MusicService musicService;
     private boolean isServiceBound = false;
 
-    private ImageButton buttonPlay, buttonPause, buttonStop;
+    private ImageButton buttonPlayPause, buttonStop;
     private ImageButton buttonPrevious, buttonNext;
     private ImageButton buttonPlayMode, buttonSetTimer;
     private MaterialButton buttonSort;
@@ -79,13 +87,22 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private MaterialToolbar toolbar;
     private View playerLayout;
+    // A7: 空状态
+    private View emptyStateView;
+    private ImageView imageViewEmptyIcon;
+    private TextView textViewEmptyTitle, textViewEmptyMessage;
+
     private String selectedDirectoryPath;
     private String selectedFilePath;
     private boolean isSeekBarUserSeeking = false;
     private ThemeManager themeManager;
     private int currentSortMode = SORT_NAME;
     private SharedPreferences prefs;
-    private boolean playerBarAnimated = false;
+
+    // C1: 后台扫描目录/文件，避免大量文件时主线程卡顿
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private int loadToken = 0;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -93,13 +110,9 @@ public class MainActivity extends AppCompatActivity {
             MusicService.LocalBinder binder = (MusicService.LocalBinder) service;
             musicService = binder.getService();
             isServiceBound = true;
-            musicService.setProgressCallback((currentPosition, duration, fileName) -> {
-                runOnUiThread(() -> {
-                    updateProgress(currentPosition, duration, fileName);
-                    // 确保 async prepare 完成后 UI 状态同步更新
-                    updateUI();
-                });
-            });
+            // C2: 进度回调只更新进度条/时间文本，不再每秒全量刷新 UI
+            musicService.setProgressCallback((currentPosition, duration, fileName) ->
+                    runOnUiThread(() -> updateProgress(currentPosition, duration, fileName)));
             musicService.setTimerCallback(new MusicService.TimerCallback() {
                 @Override
                 public void onTimerUpdate(long remainingSeconds) {
@@ -114,10 +127,20 @@ public class MainActivity extends AppCompatActivity {
                     });
                 }
             });
+            // C2: 仅在播放状态真正变化时刷新 UI
+            musicService.setPlaybackStateListener(state -> runOnUiThread(() -> updateUI()));
+            // A3: 实际播放曲目变化时，同步文件列表高亮与滚动
+            musicService.setTrackChangeListener((filePath, index) -> runOnUiThread(() -> onTrackChanged(filePath)));
             updateUI();
             updatePlayModeButton();
             if (musicService.isTimerActive()) {
                 updateTimerDisplay(musicService.getRemainingSeconds());
+            }
+            // 重绑后，若服务已在播放某曲目，同步一次高亮
+            List<String> pl = musicService.getPlaylist();
+            int idx = musicService.getCurrentIndex();
+            if (pl != null && !pl.isEmpty() && idx >= 0 && idx < pl.size()) {
+                onTrackChanged(pl.get(idx));
             }
         }
 
@@ -127,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    // ===== T11: 配置变更处理 =====
+    // ===== 配置变更处理 =====
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
@@ -143,8 +166,8 @@ public class MainActivity extends AppCompatActivity {
         selectedDirectoryPath = savedInstanceState.getString("selectedDirectoryPath");
         selectedFilePath = savedInstanceState.getString("selectedFilePath");
         currentSortMode = savedInstanceState.getInt("sortMode", SORT_NAME);
-        // 恢复文件列表（如果之前有打开的目录）
         if (selectedDirectoryPath != null) {
+            updateBreadcrumb(new File(selectedDirectoryPath).getName());
             loadFiles(selectedDirectoryPath);
         }
     }
@@ -164,9 +187,10 @@ public class MainActivity extends AppCompatActivity {
 
             if (hasStoragePermission()) {
                 loadDirectories();
-                // T16: 恢复上次打开的目录
+                // 恢复上次打开的目录
                 String lastDir = prefs.getString(KEY_LAST_DIRECTORY, null);
                 if (lastDir != null && new File(lastDir).exists()) {
+                    updateBreadcrumb(new File(lastDir).getName());
                     loadFiles(lastDir);
                 }
             }
@@ -193,8 +217,7 @@ public class MainActivity extends AppCompatActivity {
         toolbar = findViewById(R.id.toolbar);
         recyclerViewDirectories = findViewById(R.id.recyclerViewDirectories);
         recyclerViewFiles = findViewById(R.id.recyclerViewFiles);
-        buttonPlay = findViewById(R.id.buttonPlay);
-        buttonPause = findViewById(R.id.buttonPause);
+        buttonPlayPause = findViewById(R.id.buttonPlayPause);
         buttonStop = findViewById(R.id.buttonStop);
         buttonPrevious = findViewById(R.id.buttonPrevious);
         buttonNext = findViewById(R.id.buttonNext);
@@ -212,18 +235,33 @@ public class MainActivity extends AppCompatActivity {
         seekBarProgress = findViewById(R.id.seekBarProgress);
         progressBar = findViewById(R.id.progressBar);
         playerLayout = findViewById(R.id.playerLayout);
+        emptyStateView = findViewById(R.id.emptyStateView);
+        imageViewEmptyIcon = findViewById(R.id.imageViewEmptyIcon);
+        textViewEmptyTitle = findViewById(R.id.textViewEmptyTitle);
+        textViewEmptyMessage = findViewById(R.id.textViewEmptyMessage);
 
-        // Click listeners
-        buttonPlay.setOnClickListener(v -> playMusic());
-        buttonPause.setOnClickListener(v -> pauseMusic());
+        // A2: 单按钮播放/暂停切换
+        buttonPlayPause.setOnClickListener(v -> togglePlayPause());
         buttonStop.setOnClickListener(v -> stopMusic());
         buttonPrevious.setOnClickListener(v -> playPrevious());
         buttonNext.setOnClickListener(v -> playNext());
         buttonPlayMode.setOnClickListener(v -> cyclePlayMode());
         buttonSetTimer.setOnClickListener(v -> showTimerDialog());
-        buttonSort.setOnClickListener(v -> cycleSortMode());
+        // A4: 排序改为下拉菜单
+        buttonSort.setText(R.string.sort_button_label);
+        buttonSort.setOnClickListener(v -> showSortMenu());
         if (buttonSettings != null) {
             buttonSettings.setOnClickListener(v -> showThemeDialog());
+        }
+        // A7: 点击空状态重新扫描
+        if (emptyStateView != null) {
+            emptyStateView.setOnClickListener(v -> {
+                if (hasStoragePermission()) {
+                    loadDirectories();
+                } else {
+                    checkPermissions();
+                }
+            });
         }
 
         // Add spacing decorations to RecyclerViews
@@ -232,7 +270,8 @@ public class MainActivity extends AppCompatActivity {
         recyclerViewFiles.addItemDecoration(new SpacingItemDecoration(itemSpacing));
 
         updatePlayModeButton();
-        updateSortButton();
+
+        recyclerViewFiles.setLayoutManager(new LinearLayoutManager(this));
 
         seekBarProgress.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -257,35 +296,27 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-
-        fileList = new ArrayList<>();
-        recyclerViewFiles.setLayoutManager(new LinearLayoutManager(this));
     }
 
-    // ===== 排序 T18 =====
+    // ===== 排序（A4 下拉菜单）=====
 
-    private void cycleSortMode() {
-        currentSortMode = (currentSortMode + 1) % 3;
-        prefs.edit().putInt(KEY_SORT_MODE, currentSortMode).apply();
-        updateSortButton();
-        if (selectedDirectoryPath != null) {
-            loadFiles(selectedDirectoryPath);
-        }
-    }
-
-    private void updateSortButton() {
-        if (buttonSort == null) return;
-        switch (currentSortMode) {
-            case SORT_NAME:
-                buttonSort.setText(R.string.sort_by_name);
-                break;
-            case SORT_SIZE:
-                buttonSort.setText(R.string.sort_by_size);
-                break;
-            case SORT_DATE:
-                buttonSort.setText(R.string.sort_by_date);
-                break;
-        }
+    private void showSortMenu() {
+        PopupMenu popup = new PopupMenu(this, buttonSort);
+        popup.getMenu().add(0, SORT_NAME, 0, R.string.sort_by_name).setChecked(currentSortMode == SORT_NAME);
+        popup.getMenu().add(0, SORT_SIZE, 1, R.string.sort_by_size).setChecked(currentSortMode == SORT_SIZE);
+        popup.getMenu().add(0, SORT_DATE, 2, R.string.sort_by_date).setChecked(currentSortMode == SORT_DATE);
+        popup.getMenu().setGroupCheckable(0, true, true);
+        popup.setOnMenuItemClickListener(item -> {
+            int newMode = item.getItemId();
+            if (newMode == currentSortMode) return true;
+            currentSortMode = newMode;
+            prefs.edit().putInt(KEY_SORT_MODE, currentSortMode).apply();
+            if (selectedDirectoryPath != null) {
+                loadFiles(selectedDirectoryPath);
+            }
+            return true;
+        });
+        popup.show();
     }
 
     // ===== 播放模式 =====
@@ -333,14 +364,12 @@ public class MainActivity extends AppCompatActivity {
     private void playPrevious() {
         if (isServiceBound && musicService != null) {
             musicService.playPrevious();
-            updateUI();
         }
     }
 
     private void playNext() {
         if (isServiceBound && musicService != null) {
             musicService.playNext();
-            updateUI();
         }
     }
 
@@ -425,7 +454,7 @@ public class MainActivity extends AppCompatActivity {
             playerLayout.setBackground(gradient);
         }
 
-        // Section title text color (dark theme needs light text)
+        // Section title text color
         int sectionTextColor = colors.textOnSurface;
         if (textViewDirectoryTitle != null) {
             textViewDirectoryTitle.setTextColor(sectionTextColor);
@@ -434,14 +463,10 @@ public class MainActivity extends AppCompatActivity {
             textViewFileTitle.setTextColor(sectionTextColor);
         }
 
-        // Play/pause button circle backgrounds
-        if (buttonPlay != null) {
-            ((GradientDrawable) buttonPlay.getBackground()).setColor(colors.accent);
-            buttonPlay.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
-        }
-        if (buttonPause != null) {
-            ((GradientDrawable) buttonPause.getBackground()).setColor(colors.primary);
-            buttonPause.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+        // A2: 单播放/暂停按钮圆形背景
+        if (buttonPlayPause != null) {
+            ((GradientDrawable) buttonPlayPause.getBackground()).setColor(colors.accent);
+            buttonPlayPause.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
         }
 
         // Icon tinting for secondary buttons
@@ -480,6 +505,17 @@ public class MainActivity extends AppCompatActivity {
         // Timer text color
         if (textViewTimer != null) {
             textViewTimer.setTextColor(colors.accent);
+        }
+
+        // A7: 空状态配色
+        if (imageViewEmptyIcon != null) {
+            imageViewEmptyIcon.setColorFilter(colors.textSecondary);
+        }
+        if (textViewEmptyTitle != null) {
+            textViewEmptyTitle.setTextColor(colors.textOnSurface);
+        }
+        if (textViewEmptyMessage != null) {
+            textViewEmptyMessage.setTextColor(colors.textSecondary);
         }
 
         // Update adapters
@@ -533,7 +569,7 @@ public class MainActivity extends AppCompatActivity {
     // ===== 权限 =====
 
     private void checkPermissions() {
-        // T12: Android 11+ 使用 MANAGE_EXTERNAL_STORAGE
+        // Android 11+ 使用 MANAGE_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 new MaterialAlertDialogBuilder(this)
@@ -586,156 +622,166 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ===== 目录/文件浏览 =====
+    // ===== 目录/文件浏览（C1 后台线程）=====
 
     private void loadDirectories() {
         if (recyclerViewDirectories == null) return;
-
-        // T17: 显示加载状态
-        showLoading(true);
-
-        directoryList = new ArrayList<>();
-
         if (!hasStoragePermission()) {
             showLoading(false);
+            showEmptyState(true, null, null);
             return;
         }
-
-        try {
-            File[] possiblePaths = {
-                    new File("/sdcard/播放文件"),
-                    new File("/storage/emulated/0/播放文件"),
-                    new File(getExternalFilesDir(null), "播放文件"),
-                    new File(getFilesDir(), "播放文件"),
-            };
-
-            File baseDir = null;
-            for (File path : possiblePaths) {
-                try {
-                    if (path.exists() && path.isDirectory()) {
-                        baseDir = path;
-                        break;
+        showLoading(true);
+        showEmptyState(false, null, null);
+        final int token = ++loadToken;
+        ioExecutor.execute(() -> {
+            List<DirectoryItem> result = scanDirectories();
+            mainHandler.post(() -> {
+                if (token != loadToken) return; // 已有更新的加载请求，丢弃旧结果
+                directoryList.clear();
+                directoryList.addAll(result);
+                if (directoryAdapter == null) {
+                    directoryAdapter = new DirectoryAdapter(directoryList, directory -> {
+                        selectedDirectoryPath = directory.getPath();
+                        selectedFilePath = null;
+                        prefs.edit().putString(KEY_LAST_DIRECTORY, directory.getPath()).apply();
+                        updateBreadcrumb(directory.getName());
+                        loadFiles(directory.getPath());
+                    });
+                    directoryAdapter.setThemeColors(themeManager.getThemeColors());
+                    if (recyclerViewDirectories.getLayoutManager() == null) {
+                        recyclerViewDirectories.setLayoutManager(new LinearLayoutManager(this));
                     }
-                } catch (SecurityException e) {
-                    continue;
+                    recyclerViewDirectories.setAdapter(directoryAdapter);
+                } else {
+                    directoryAdapter.notifyDataSetChanged();
                 }
-            }
-
-            if (baseDir != null && baseDir.exists() && baseDir.isDirectory()) {
-                try {
-                    File[] dirs = baseDir.listFiles(File::isDirectory);
-                    if (dirs != null) {
-                        for (File dir : dirs) {
-                            try {
-                                int mp3Count = getMp3Count(dir);
-                                if (mp3Count > 0) {
-                                    directoryList.add(new DirectoryItem(dir.getName(), dir.getAbsolutePath(), mp3Count));
-                                }
-                            } catch (SecurityException e) {
-                                continue;
-                            }
-                        }
-                    }
-                } catch (SecurityException e) {
-                    Toast.makeText(this, getString(R.string.directory_access_error, e.getMessage()), Toast.LENGTH_SHORT).show();
-                }
-            } else {
-                Toast.makeText(this, R.string.directory_not_found, Toast.LENGTH_LONG).show();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, getString(R.string.directory_load_error, e.getMessage()), Toast.LENGTH_SHORT).show();
-        }
-
-        // T15: 创建 adapter 时传入主题颜色
-        if (directoryAdapter == null) {
-            directoryAdapter = new DirectoryAdapter(directoryList, directory -> {
-                selectedDirectoryPath = directory.getPath();
-                selectedFilePath = null;
-                // T16: 记住上次打开的目录
-                prefs.edit().putString(KEY_LAST_DIRECTORY, directory.getPath()).apply();
-                Toast.makeText(this, getString(R.string.directory_selected, directory.getName()), Toast.LENGTH_SHORT).show();
-                loadFiles(directory.getPath());
+                showLoading(false);
+                showEmptyState(directoryList.isEmpty(), null, null);
             });
-            directoryAdapter.setThemeColors(themeManager.getThemeColors());
-        } else {
-            directoryAdapter.notifyDataSetChanged();
-        }
+        });
+    }
 
-        if (recyclerViewDirectories.getLayoutManager() == null) {
-            recyclerViewDirectories.setLayoutManager(new LinearLayoutManager(this));
+    private List<DirectoryItem> scanDirectories() {
+        List<DirectoryItem> list = new ArrayList<>();
+        File baseDir = findBaseDir();
+        if (baseDir == null) return list;
+        try {
+            File[] dirs = baseDir.listFiles(File::isDirectory);
+            if (dirs != null) {
+                for (File dir : dirs) {
+                    try {
+                        int mp3Count = getMp3Count(dir);
+                        if (mp3Count > 0) {
+                            list.add(new DirectoryItem(dir.getName(), dir.getAbsolutePath(), mp3Count));
+                        }
+                    } catch (SecurityException e) {
+                        continue;
+                    }
+                }
+            }
+        } catch (SecurityException e) {
+            mainHandler.post(() -> Toast.makeText(this,
+                    getString(R.string.directory_access_error, e.getMessage()), Toast.LENGTH_SHORT).show());
         }
-        recyclerViewDirectories.setAdapter(directoryAdapter);
+        Collections.sort(list, (a, b) -> a.getName().compareTo(b.getName()));
+        return list;
+    }
 
-        showLoading(false);
+    private File findBaseDir() {
+        File[] possiblePaths = {
+                new File("/sdcard/播放文件"),
+                new File("/storage/emulated/0/播放文件"),
+                new File(getExternalFilesDir(null), "播放文件"),
+                new File(getFilesDir(), "播放文件"),
+        };
+        for (File path : possiblePaths) {
+            try {
+                if (path.exists() && path.isDirectory()) {
+                    return path;
+                }
+            } catch (SecurityException e) {
+                continue;
+            }
+        }
+        return null;
     }
 
     private void loadFiles(String directoryPath) {
         if (recyclerViewFiles == null) return;
-
-        fileList.clear();
-
-        try {
-            File directory = new File(directoryPath);
-            if (directory.exists() && directory.isDirectory()) {
-                File[] files = directory.listFiles();
-                if (files != null) {
-                    for (File file : files) {
-                        if (file.isFile() && file.getName().toLowerCase().endsWith(".mp3")) {
-                            fileList.add(new FileItem(file.getName(), file.getAbsolutePath(), file.length(), file.lastModified()));
-                        }
-                    }
-                    sortFileList();
+        final int token = ++loadToken;
+        ioExecutor.execute(() -> {
+            List<FileItem> result = scanFiles(directoryPath);
+            mainHandler.post(() -> {
+                if (token != loadToken) return;
+                fileList.clear();
+                fileList.addAll(result);
+                if (fileAdapter == null) {
+                    fileAdapter = new FileAdapter(fileList, (file, position) -> {
+                        // A1: 点击即播放
+                        selectedFilePath = file.getPath();
+                        prefs.edit().putString(KEY_LAST_FILE, file.getPath()).apply();
+                        playFile(file.getPath());
+                    });
+                    fileAdapter.setThemeColors(themeManager.getThemeColors());
+                    recyclerViewFiles.setAdapter(fileAdapter);
+                } else {
+                    fileAdapter.resetAnimation();
+                    fileAdapter.notifyDataSetChanged();
                 }
-            }
-        } catch (SecurityException e) {
-            Toast.makeText(this, getString(R.string.file_access_error, e.getMessage()), Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, getString(R.string.file_load_error, e.getMessage()), Toast.LENGTH_SHORT).show();
-        }
 
-        if (fileAdapter == null) {
-            fileAdapter = new FileAdapter(fileList, (file, position) -> {
-                selectedFilePath = file.getPath();
-                // T16: 记住上次选中的文件
-                prefs.edit().putString(KEY_LAST_FILE, file.getPath()).apply();
-                Toast.makeText(this, getString(R.string.file_selected, file.getName()), Toast.LENGTH_SHORT).show();
-                if (isServiceBound && musicService != null) {
-                    musicService.setPlaylistFromFile(selectedFilePath);
-                    updateUI();
+                // 恢复高亮（旋转/重绑后）
+                if (selectedFilePath != null && fileAdapter != null) {
+                    fileAdapter.highlightByPath(selectedFilePath);
+                }
+
+                if (!result.isEmpty()) {
+                    textViewFileTitle.setVisibility(View.VISIBLE);
+                    textViewFileTitle.setText(getString(R.string.file_count_label, result.size()));
+                    recyclerViewFiles.setVisibility(View.VISIBLE);
+                    if (buttonSort != null) buttonSort.setVisibility(View.VISIBLE);
+                } else {
+                    // A7: 目录无文件的内联提示
+                    textViewFileTitle.setVisibility(View.VISIBLE);
+                    textViewFileTitle.setText(R.string.empty_state_no_files_title);
+                    recyclerViewFiles.setVisibility(View.GONE);
+                    if (buttonSort != null) buttonSort.setVisibility(View.GONE);
                 }
             });
-            fileAdapter.setThemeColors(themeManager.getThemeColors());
-            recyclerViewFiles.setAdapter(fileAdapter);
-        } else {
-            fileAdapter.resetAnimation();
-            fileAdapter.notifyDataSetChanged();
-        }
-
-        if (fileList.size() > 0) {
-            textViewFileTitle.setVisibility(View.VISIBLE);
-            recyclerViewFiles.setVisibility(View.VISIBLE);
-            textViewFileTitle.setText(getString(R.string.file_count_label, fileList.size()));
-            if (buttonSort != null) buttonSort.setVisibility(View.VISIBLE);
-        } else {
-            textViewFileTitle.setVisibility(View.GONE);
-            recyclerViewFiles.setVisibility(View.GONE);
-            if (buttonSort != null) buttonSort.setVisibility(View.GONE);
-        }
+        });
     }
 
-    // T18: 文件排序
-    private void sortFileList() {
+    private List<FileItem> scanFiles(String directoryPath) {
+        List<FileItem> list = new ArrayList<>();
+        File directory = new File(directoryPath);
+        if (!directory.exists() || !directory.isDirectory()) return list;
+        try {
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile() && file.getName().toLowerCase().endsWith(".mp3")) {
+                        list.add(new FileItem(file.getName(), file.getAbsolutePath(), file.length(), file.lastModified()));
+                    }
+                }
+                sortFileList(list);
+            }
+        } catch (SecurityException e) {
+            mainHandler.post(() -> Toast.makeText(this,
+                    getString(R.string.file_access_error, e.getMessage()), Toast.LENGTH_SHORT).show());
+        }
+        return list;
+    }
+
+    private void sortFileList(List<FileItem> list) {
         switch (currentSortMode) {
             case SORT_SIZE:
-                Collections.sort(fileList, (f1, f2) -> Long.compare(f2.getSize(), f1.getSize()));
+                Collections.sort(list, (f1, f2) -> Long.compare(f2.getSize(), f1.getSize()));
                 break;
             case SORT_DATE:
-                Collections.sort(fileList, (f1, f2) -> Long.compare(f2.getLastModified(), f1.getLastModified()));
+                Collections.sort(list, (f1, f2) -> Long.compare(f2.getLastModified(), f1.getLastModified()));
                 break;
             default: // SORT_NAME
-                Collections.sort(fileList, (f1, f2) -> f1.getName().compareTo(f2.getName()));
+                Collections.sort(list, (f1, f2) -> f1.getName().compareTo(f2.getName()));
                 break;
         }
     }
@@ -757,15 +803,28 @@ public class MainActivity extends AppCompatActivity {
         return count;
     }
 
-    // T17: 加载状态
     private void showLoading(boolean show) {
         if (progressBar != null) {
             progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
         }
-        if (recyclerViewDirectories != null && show) {
-            recyclerViewDirectories.setVisibility(View.GONE);
-        } else if (recyclerViewDirectories != null && !show) {
-            recyclerViewDirectories.setVisibility(View.VISIBLE);
+        if (recyclerViewDirectories != null) {
+            recyclerViewDirectories.setVisibility(show ? View.GONE : View.VISIBLE);
+        }
+    }
+
+    /** A7: 控制「找不到目录」空状态 */
+    private void showEmptyState(boolean show, String titleOverride, String msgOverride) {
+        if (emptyStateView == null) return;
+        emptyStateView.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) {
+            if (textViewEmptyTitle != null) {
+                textViewEmptyTitle.setText(titleOverride != null ? titleOverride
+                        : getString(R.string.empty_state_title));
+            }
+            if (textViewEmptyMessage != null) {
+                textViewEmptyMessage.setText(msgOverride != null ? msgOverride
+                        : getString(R.string.empty_state_message));
+            }
         }
     }
 
@@ -779,101 +838,171 @@ public class MainActivity extends AppCompatActivity {
 
     // ===== 播放控制 =====
 
-    private void playMusic() {
-        if (isServiceBound && musicService != null) {
+    /** A1: 点击文件直接播放 */
+    private void playFile(String path) {
+        if (!isServiceBound || musicService == null) return;
+        musicService.setPlaylistFromFile(path);
+        musicService.play();
+    }
+
+    /** A2: 单按钮播放/暂停切换 */
+    private void togglePlayPause() {
+        if (!isServiceBound || musicService == null) return;
+        if (musicService.getPlaybackState() == MusicService.STATE_PLAYING) {
+            musicService.pause();
+            return;
+        }
+        // 需要播放列表才能启动
+        if (musicService.getPlaylistSize() == 0) {
             if (selectedFilePath != null && !selectedFilePath.isEmpty()) {
-                musicService.play();
+                musicService.setPlaylistFromFile(selectedFilePath);
             } else if (selectedDirectoryPath != null && !selectedDirectoryPath.isEmpty()) {
-                if (musicService.getPlaylist() == null || musicService.getPlaylist().isEmpty()) {
-                    musicService.setPlaylist(selectedDirectoryPath);
-                }
-                musicService.play();
+                musicService.setPlaylist(selectedDirectoryPath);
             } else {
                 Toast.makeText(this, R.string.select_directory_or_file, Toast.LENGTH_SHORT).show();
                 return;
             }
-            updateUI();
         }
-    }
-
-    private void pauseMusic() {
-        if (isServiceBound && musicService != null) {
-            musicService.pause();
-            updateUI();
-        }
+        musicService.play();
     }
 
     private void stopMusic() {
         if (isServiceBound && musicService != null) {
             musicService.stop();
-            updateUI();
         }
     }
 
-    // ===== 定时器 =====
+    // ===== 面包屑 =====
+
+    private void updateBreadcrumb(String dirName) {
+        if (toolbar == null) return;
+        toolbar.setSubtitle(dirName == null ? null : getString(R.string.breadcrumb_format, dirName));
+    }
+
+    // ===== 定时器（A5 预设 + 播完即停）=====
 
     private void showTimerDialog() {
-        // 如果已有定时器，显示取消选项
-        boolean timerActive = isServiceBound && musicService != null && musicService.isTimerActive();
+        final boolean timerActive = isServiceBound && musicService != null && musicService.isTimerActive();
+        boolean finishCurrent = isServiceBound && musicService != null && musicService.isStopAfterCurrent();
 
-        LinearLayout dialogLayout = new LinearLayout(this);
-        dialogLayout.setOrientation(LinearLayout.VERTICAL);
-        dialogLayout.setPadding(48, 32, 48, 16);
+        final Context ctx = this;
+        LinearLayout root = new LinearLayout(ctx);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(16), dp(20), dp(8));
 
-        EditText input = new EditText(this);
-        input.setHint(R.string.timer_hint);
-        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        input.setGravity(android.view.Gravity.CENTER);
-        if (timerActive) {
-            input.setEnabled(false);
-            input.setAlpha(0.4f);
-        }
-        dialogLayout.addView(input);
+        if (!timerActive) {
+            // 快捷预设
+            TextView presetsLabel = new TextView(ctx);
+            presetsLabel.setText(R.string.timer_hint);
+            presetsLabel.setPadding(0, 0, 0, dp(8));
+            root.addView(presetsLabel);
 
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this);
-        builder.setTitle(R.string.timer_hint);
-        builder.setView(dialogLayout);
+            LinearLayout chips = new LinearLayout(ctx);
+            chips.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            int[] presets = {15, 30, 45, 60};
+            for (int mins : presets) {
+                Button chip = new Button(ctx);
+                chip.setText(getString(R.string.timer_preset_minutes, mins));
+                chip.setAllCaps(false);
+                chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                chip.setTag(mins);
+                chips.addView(chip, chipLp);
+            }
+            root.addView(chips);
 
-        if (timerActive) {
-            builder.setPositiveButton(R.string.cancel_timer, (dialog, which) -> {
-                cancelTimer();
-            });
-            builder.setNegativeButton(R.string.dialog_cancel, null);
-        } else {
-            builder.setPositiveButton(R.string.set_timer, (dialog, which) -> {
-                String minutesStr = input.getText().toString().trim();
-                if (minutesStr.isEmpty()) {
-                    Toast.makeText(this, R.string.timer_input_hint, Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                try {
-                    int minutes = Integer.parseInt(minutesStr);
-                    if (minutes <= 0) {
-                        Toast.makeText(this, R.string.timer_invalid, Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    if (minutes > MAX_TIMER_MINUTES) {
-                        Toast.makeText(this, getString(R.string.timer_max_exceeded, MAX_TIMER_MINUTES), Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            // 自定义分钟输入
+            final EditText input = new EditText(ctx);
+            input.setHint(R.string.timer_input_hint);
+            input.setInputType(InputType.TYPE_CLASS_NUMBER);
+            input.setGravity(Gravity.CENTER);
+            input.setId(View.generateViewId());
+            root.addView(input);
+
+            // 播完本曲后停止
+            final CheckBox finishBox = new CheckBox(ctx);
+            finishBox.setText(R.string.timer_finish_current);
+            finishBox.setChecked(finishCurrent);
+            root.addView(finishBox);
+
+            MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(ctx)
+                    .setTitle(R.string.timer_hint)
+                    .setView(root)
+                    .setPositiveButton(R.string.set_timer, (dialog, which) -> {
+                        boolean finish = finishBox.isChecked();
+                        if (isServiceBound && musicService != null) {
+                            musicService.setStopAfterCurrent(finish);
+                        }
+                        String minutesStr = input.getText().toString().trim();
+                        if (minutesStr.isEmpty()) {
+                            if (finish) {
+                                Toast.makeText(this, R.string.timer_finish_current_set, Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(this, R.string.timer_input_hint, Toast.LENGTH_SHORT).show();
+                            }
+                            return;
+                        }
+                        try {
+                            int minutes = Integer.parseInt(minutesStr);
+                            if (minutes <= 0) {
+                                Toast.makeText(this, R.string.timer_invalid, Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            if (minutes > MAX_TIMER_MINUTES) {
+                                Toast.makeText(this, getString(R.string.timer_max_exceeded, MAX_TIMER_MINUTES), Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            if (isServiceBound && musicService != null) {
+                                musicService.setTimer(minutes);
+                                updateTimerDisplay(musicService.getRemainingSeconds());
+                                Toast.makeText(this, getString(R.string.timer_set, minutes), Toast.LENGTH_SHORT).show();
+                            }
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(this, R.string.timer_invalid_number, Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    .setNegativeButton(R.string.dialog_cancel, null);
+
+            final AlertDialog dialog = builder.create();
+            // 预设按钮点击即设即关
+            for (int i = 0; i < chips.getChildCount(); i++) {
+                Button chip = (Button) chips.getChildAt(i);
+                final int mins = (int) chip.getTag();
+                chip.setOnClickListener(v -> {
                     if (isServiceBound && musicService != null) {
-                        musicService.setTimer(minutes);
+                        musicService.setStopAfterCurrent(finishBox.isChecked());
+                        musicService.setTimer(mins);
                         updateTimerDisplay(musicService.getRemainingSeconds());
-                        Toast.makeText(this, getString(R.string.timer_set, minutes), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.timer_set, mins), Toast.LENGTH_SHORT).show();
                     }
-                } catch (NumberFormatException e) {
-                    Toast.makeText(this, R.string.timer_invalid_number, Toast.LENGTH_SHORT).show();
-                }
-            });
-            builder.setNegativeButton(R.string.dialog_cancel, null);
-        }
+                    dialog.dismiss();
+                });
+            }
+            dialog.show();
+        } else {
+            // 定时器激活中：显示剩余 + 取消
+            TextView info = new TextView(ctx);
+            info.setPadding(dp(4), dp(4), dp(4), dp(4));
+            info.setText(getString(R.string.timer_remaining_ms,
+                    musicService.getRemainingSeconds() / 60,
+                    musicService.getRemainingSeconds() % 60));
+            info.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            root.addView(info);
 
-        builder.show();
+            new MaterialAlertDialogBuilder(ctx)
+                    .setTitle(R.string.timer_hint)
+                    .setView(root)
+                    .setPositiveButton(R.string.cancel_timer, (d, w) -> cancelTimer())
+                    .setNegativeButton(R.string.dialog_cancel, null)
+                    .show();
+        }
     }
 
     private void cancelTimer() {
         if (isServiceBound && musicService != null) {
             musicService.cancelTimer();
+            musicService.setStopAfterCurrent(false);
             hideTimerDisplay();
             Toast.makeText(this, R.string.timer_cancelled, Toast.LENGTH_SHORT).show();
         }
@@ -905,88 +1034,80 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ===== UI 状态更新 =====
+    // ===== UI 状态更新（C2 由状态回调驱动）=====
 
     private void updateUI() {
         if (!isServiceBound || musicService == null) return;
-        if (textViewStatus == null || buttonPlay == null) return;
+        if (textViewStatus == null || buttonPlayPause == null) return;
 
         int state = musicService.getPlaybackState();
+        boolean active = (state == MusicService.STATE_PLAYING || state == MusicService.STATE_PAUSED);
+        boolean canControl = active && musicService.getPlaylistSize() > 0;
+
         switch (state) {
             case MusicService.STATE_PLAYING:
                 textViewStatus.setText(R.string.status_playing);
-                animatePlayPauseTransition(buttonPlay, buttonPause);
-                buttonStop.setEnabled(true);
-                buttonPrevious.setEnabled(true);
-                buttonNext.setEnabled(true);
-                setSecondaryAlpha(buttonStop, true);
-                setSecondaryAlpha(buttonPrevious, true);
-                setSecondaryAlpha(buttonNext, true);
+                setPlayPauseIcon(true);
                 break;
             case MusicService.STATE_PAUSED:
                 textViewStatus.setText(R.string.status_paused);
-                animatePlayPauseTransition(buttonPause, buttonPlay);
-                buttonStop.setEnabled(true);
-                buttonPrevious.setEnabled(true);
-                buttonNext.setEnabled(true);
-                setSecondaryAlpha(buttonStop, true);
-                setSecondaryAlpha(buttonPrevious, true);
-                setSecondaryAlpha(buttonNext, true);
+                setPlayPauseIcon(false);
                 break;
-            case MusicService.STATE_STOPPED:
+            default: // STATE_STOPPED
                 textViewStatus.setText(R.string.status_stopped);
-                animatePlayPauseTransition(buttonPause, buttonPlay);
-                buttonStop.setEnabled(false);
-                buttonPrevious.setEnabled(false);
-                buttonNext.setEnabled(false);
-                setSecondaryAlpha(buttonStop, false);
-                setSecondaryAlpha(buttonPrevious, false);
-                setSecondaryAlpha(buttonNext, false);
+                setPlayPauseIcon(false);
                 if (textViewCurrentFile != null) textViewCurrentFile.setText("");
                 if (textViewCurrentTime != null) textViewCurrentTime.setText("00:00");
                 if (textViewTotalTime != null) textViewTotalTime.setText("00:00");
                 if (seekBarProgress != null) seekBarProgress.setProgress(0);
                 break;
         }
+
+        buttonStop.setEnabled(active);
+        buttonPrevious.setEnabled(canControl);
+        buttonNext.setEnabled(canControl);
+        setSecondaryAlpha(buttonStop, active);
+        setSecondaryAlpha(buttonPrevious, canControl);
+        setSecondaryAlpha(buttonNext, canControl);
+
+        // B2: 同步文件列表的脉冲动画（仅正在播放的那一行）
+        if (fileAdapter != null) {
+            fileAdapter.setPlaying(state == MusicService.STATE_PLAYING);
+        }
     }
 
-    /**
-     * Animated crossfade between play and pause buttons.
-     */
-    private void animatePlayPauseTransition(View outgoing, View incoming) {
-        if (outgoing.getVisibility() == View.GONE && incoming.getVisibility() == View.VISIBLE) {
-            // Already in the correct state, skip animation
-            return;
-        }
-        // Animate outgoing view out
-        outgoing.animate()
-                .alpha(0f)
-                .scaleX(0.7f)
-                .scaleY(0.7f)
-                .setDuration(150)
-                .withEndAction(() -> {
-                    outgoing.setVisibility(View.GONE);
-                    outgoing.setScaleX(1f);
-                    outgoing.setScaleY(1f);
-                    outgoing.setAlpha(1f);
-                });
+    /** A2: 切换播放/暂停图标，附带轻微弹跳 */
+    private void setPlayPauseIcon(boolean playing) {
+        if (buttonPlayPause == null) return;
+        buttonPlayPause.setImageResource(playing ? R.drawable.ic_pause : R.drawable.ic_play);
+        buttonPlayPause.setContentDescription(getString(playing ? R.string.pause : R.string.play));
+        buttonPlayPause.setScaleX(0.85f);
+        buttonPlayPause.setScaleY(0.85f);
+        buttonPlayPause.animate().scaleX(1f).scaleY(1f).setDuration(150).start();
+    }
 
-        // Animate incoming view in
-        incoming.setAlpha(0f);
-        incoming.setScaleX(0.7f);
-        incoming.setScaleY(0.7f);
-        incoming.setVisibility(View.VISIBLE);
-        incoming.animate()
-                .alpha(1f)
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(200)
-                .start();
+    /** A3: 服务侧曲目变化时同步列表高亮 + 滚动 */
+    private void onTrackChanged(String filePath) {
+        if (filePath == null) return;
+        selectedFilePath = filePath;
+        prefs.edit().putString(KEY_LAST_FILE, filePath).apply();
+        if (fileAdapter == null) return;
+        fileAdapter.highlightByPath(filePath);
+        for (int i = 0; i < fileList.size(); i++) {
+            if (filePath.equals(fileList.get(i).getPath())) {
+                recyclerViewFiles.smoothScrollToPosition(i);
+                break;
+            }
+        }
     }
 
     private void setSecondaryAlpha(ImageButton button, boolean enabled) {
         if (button == null) return;
         button.setImageAlpha(enabled ? 255 : 100);
+    }
+
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density);
     }
 
     // ===== 权限回调 =====
@@ -1007,18 +1128,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // T14: 安全解绑
     @Override
     protected void onDestroy() {
         super.onDestroy();
         try {
+            if (isServiceBound && musicService != null) {
+                musicService.setPlaybackStateListener(null);
+                musicService.setTrackChangeListener(null);
+                musicService.setProgressCallback(null);
+                musicService.setTimerCallback(null);
+            }
             if (isServiceBound) {
                 unbindService(serviceConnection);
                 isServiceBound = false;
             }
         } catch (IllegalArgumentException e) {
-            // Service already unbound
             isServiceBound = false;
         }
+        ioExecutor.shutdown();
     }
 }

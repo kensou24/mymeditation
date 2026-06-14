@@ -15,7 +15,8 @@
         android:elevation="4dp"
         app:title="@string/app_title"
         app:titleTextColor="@color/text_white"
-        app:titleTextAppearance="@style/TextAppearance.MyMeditation.Title">
+        app:titleTextAppearance="@style/TextAppearance.MyMeditation.Title"
+        app:subtitleTextColor="@color/text_white">
 
         <ImageButton
             android:id="@+id/buttonSettings"
@@ -73,6 +74,47 @@
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false"
                 android:clipToPadding="false" />
+
+            <!-- A7: Empty state (shown when no directories / files found) -->
+            <LinearLayout
+                android:id="@+id/emptyStateView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:paddingTop="@dimen/spacing_xxl"
+                android:paddingBottom="@dimen/spacing_xxl"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/imageViewEmptyIcon"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:src="@drawable/ic_folder"
+                    android:alpha="0.35"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:id="@+id/textViewEmptyTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_lg"
+                    android:text="@string/empty_state_title"
+                    android:textAppearance="@style/TextAppearance.MyMeditation.SectionTitle"
+                    android:textColor="@color/text_primary" />
+
+                <TextView
+                    android:id="@+id/textViewEmptyMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/spacing_sm"
+                    android:gravity="center"
+                    android:text="@string/empty_state_message"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:paddingStart="@dimen/spacing_xl"
+                    android:paddingEnd="@dimen/spacing_xl" />
+            </LinearLayout>
 
             <!-- File section title + sort button -->
             <LinearLayout
@@ -141,9 +183,8 @@
             android:text="@string/stopped"
             android:textColor="@color/text_white"
             android:textAppearance="@style/TextAppearance.MyMeditation.PlayerCaption"
-            android:alpha="0.6"
-            android:paddingBottom="2dp"
-            android:textAllCaps="true" />
+            android:alpha="0.7"
+            android:paddingBottom="2dp" />
 
         <TextView
             android:id="@+id/textViewCurrentFile"
@@ -220,9 +261,9 @@
                 android:padding="@dimen/spacing_sm"
                 app:tint="@color/text_white" />
 
-            <!-- Play button with circle background -->
+            <!-- Single Play/Pause toggle button -->
             <ImageButton
-                android:id="@+id/buttonPlay"
+                android:id="@+id/buttonPlayPause"
                 android:layout_width="@dimen/player_button_primary"
                 android:layout_height="@dimen/player_button_primary"
                 android:layout_marginStart="@dimen/spacing_md"
@@ -232,21 +273,6 @@
                 android:contentDescription="@string/play"
                 android:padding="@dimen/spacing_md"
                 android:elevation="4dp"
-                app:tint="@color/text_white" />
-
-            <!-- Pause button with circle background (hidden by default) -->
-            <ImageButton
-                android:id="@+id/buttonPause"
-                android:layout_width="@dimen/player_button_primary"
-                android:layout_height="@dimen/player_button_primary"
-                android:layout_marginStart="@dimen/spacing_md"
-                android:layout_marginEnd="@dimen/spacing_md"
-                android:src="@drawable/ic_pause"
-                android:background="@drawable/play_button_circle"
-                android:contentDescription="@string/pause"
-                android:padding="@dimen/spacing_md"
-                android:elevation="4dp"
-                android:visibility="gone"
                 app:tint="@color/text_white" />
 
             <ImageButton

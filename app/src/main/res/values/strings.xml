@@ -26,6 +26,8 @@
     <string name="sort_by_name">按名称</string>
     <string name="sort_by_size">按大小</string>
     <string name="sort_by_date">按时间</string>
+    <string name="sort_menu_title">排序方式</string>
+    <string name="sort_button_label">排序</string>
 
     <!-- 主题 -->
     <string name="theme_dialog_title">选择皮肤主题</string>
@@ -72,4 +74,19 @@
     <string name="status_playing">正在播放</string>
     <string name="status_paused">已暂停</string>
     <string name="status_stopped">已停止</string>
+
+    <!-- 定时器预设 -->
+    <string name="timer_preset_minutes">%1$d 分钟</string>
+    <string name="timer_finish_current">播完本曲后停止</string>
+    <string name="timer_finish_current_set">将在本曲播完后停止</string>
+    <string name="timer_finish_current_cancelled">已取消「播完即停」</string>
+
+    <!-- 空状态 -->
+    <string name="empty_state_title">未找到「播放文件」目录</string>
+    <string name="empty_state_message">请把 MP3 文件放到设备的 /sdcard/播放文件/ 目录下的子文件夹中，然后点击此处重新扫描。</string>
+    <string name="empty_state_no_files_title">该目录下没有 MP3 文件</string>
+    <string name="empty_state_no_files_message">「%1$s」中没有 MP3 文件，试试选择其他目录吧。</string>
+
+    <!-- 面包屑 -->
+    <string name="breadcrumb_format">当前：%1$s</string>
 </resources>
